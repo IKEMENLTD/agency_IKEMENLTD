@@ -1,0 +1,94 @@
+====================================
+Netlify環境変数設定（コピペ用）
+test-taskmate.netlify.app
+====================================
+
+【必須】Supabase設定
+------------------------------------
+Key: SUPABASE_URL
+Value: （あなたのSupabase ProjectのURL）
+例: https://abcdefghijklmn.supabase.co
+
+Key: SUPABASE_ANON_KEY
+Value: （あなたのSupabase Anon Key）
+例: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+Key: SUPABASE_SERVICE_ROLE_KEY
+Value: （あなたのSupabase Service Role Key）
+例: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+取得方法: Supabase Dashboard → Settings → API
+
+
+【必須】JWT認証
+------------------------------------
+Key: JWT_SECRET
+Value: a8f3d2e9b1c4f7a6d5e8b2c9f3a1d4e7b9c2f5a8d1e4b7c9f2a5d8e1b4c7f9a2
+
+（またはランダムな32文字以上の文字列）
+
+
+【必須】LINE公式アカウント
+------------------------------------
+Key: LINE_CHANNEL_ACCESS_TOKEN
+Value: （あなたのLINE Channel Access Token）
+
+Key: LINE_CHANNEL_SECRET
+Value: （あなたのLINE Channel Secret）
+
+Key: LINE_OFFICIAL_URL
+Value: https://line.me/R/ti/p/@your-line-id
+
+取得方法: LINE Developers Console → Messaging API
+
+
+【必須】管理者ログイン
+------------------------------------
+Key: ADMIN_USERNAME
+Value: admin
+
+Key: ADMIN_PASSWORD
+Value: TaskMate2024Admin!
+
+（本番環境では必ず変更してください）
+
+
+【オプション】アプリケーション設定
+------------------------------------
+Key: APP_URL
+Value: https://test-taskmate.netlify.app
+
+Key: TRACKING_BASE_URL
+Value: https://test-taskmate.netlify.app/t/
+
+
+====================================
+代理店ログイン用テストアカウント
+====================================
+
+以下のアカウントでログインできます：
+
+URL: https://test-taskmate.netlify.app/agency/
+
+メールアドレス: account1@test-agency.com
+パスワード: Kx9mP#2nQ@7z
+
+メールアドレス: account2@test-agency.com
+パスワード: Jy3$Rt8Lw&5v
+
+メールアドレス: account3@test-agency.com
+パスワード: Nm6!Fq4Xp*9s
+
+※ただし、Supabaseでテーブル作成とテストデータ投入が必要です
+
+
+====================================
+次のステップ
+====================================
+
+1. Netlifyに上記の環境変数を設定
+2. Supabaseでデータベーステーブルを作成
+   → database/schema.sql を実行
+   → database/update_passwords.sql を実行
+3. Netlifyを再デプロイ（自動で行われます）
+4. https://test-taskmate.netlify.app/agency/ でログインテスト

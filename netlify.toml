@@ -1,0 +1,66 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+  command = "echo 'Build complete'"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Agency dashboard is now at root (/)
+# SPA routing - serve index.html for all routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers for agency dashboard
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://code.getmdl.io; img-src 'self' data: https:; connect-src 'self' https://api64.ipify.org https://api.ipify.org https://ipinfo.io https://*.supabase.co https://www.google-analytics.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com;"
+
+# Function headers for CORS
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, X-Line-Signature"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+
+# Environment variables documentation
+# Add these to your Netlify environment variables:
+# SUPABASE_URL=https://your-project.supabase.co
+# SUPABASE_ANON_KEY=your-anon-key
+# SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# LINE_CHANNEL_SECRET=your-line-channel-secret
+# LINE_CHANNEL_ACCESS_TOKEN=your-line-access-token
+
+# Build command optimization
+[build.processing]
+  skip_processing = false
+[build.processing.css]
+  bundle = true
+  minify = true
+[build.processing.js]
+  bundle = false
+  minify = true
+[build.processing.html]
+  pretty_urls = true
+
+# Function configuration
+[functions]
+  node_bundler = "esbuild"
+
+# Deploy previews
+[context.deploy-preview]
+  command = "echo 'Deploy preview'"
+
+[context.branch-deploy]
+  command = "echo 'Branch deploy'"

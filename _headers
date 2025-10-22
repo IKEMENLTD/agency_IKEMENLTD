@@ -1,0 +1,41 @@
+# Global security headers
+/*
+  # Content Security Policy (XSS保護 - 最重要)
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+  # Clickjacking保護
+  X-Frame-Options: DENY
+
+  # MIME type sniffing防止
+  X-Content-Type-Options: nosniff
+
+  # XSSフィルター有効化（レガシーブラウザ用）
+  X-XSS-Protection: 1; mode=block
+
+  # Referrer Policy（プライバシー保護）
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # HTTPS強制（本番環境で有効化推奨）
+  # Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+  # 不要な機能を無効化（プライバシー保護）
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# Admin pages - no cache
+/admin/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+# Tracking pages - short cache
+/t/*
+  Cache-Control: public, max-age=300
+
+# Functions CORS headers and security
+/.netlify/functions/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-Agency-Id, X-CSRF-Token, X-Line-Signature
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Cache-Control: no-store, no-cache, must-revalidate, private
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY

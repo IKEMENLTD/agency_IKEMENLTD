@@ -1,0 +1,48 @@
+{
+  "name": "taskmate-tracking-system",
+  "version": "1.0.0",
+  "description": "Comprehensive tracking management system for TaskMate AI on Netlify with LINE integration",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx tailwindcss -i ./css/input.css -o ./css/output.css --minify",
+    "build:watch": "npx tailwindcss -i ./css/input.css -o ./css/output.css --watch",
+    "dev": "netlify dev",
+    "deploy": "npm run build && netlify deploy --prod",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "tracking",
+    "analytics",
+    "line",
+    "netlify",
+    "supabase",
+    "taskmate"
+  ],
+  "author": "TaskMate AI",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "@line/bot-sdk": "^7.5.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "stripe": "^14.5.0",
+    "@sendgrid/mail": "^8.1.6"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.24"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/taskmate-tracking"
+  },
+  "homepage": "https://taskmateai.net",
+  "bugs": {
+    "url": "https://github.com/your-username/taskmate-tracking/issues"
+  }
+}

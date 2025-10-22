@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パスワードリセット - TaskMate AI</title>
+    <!-- ⚠️ セキュリティ警告: cdn.tailwindcss.comはJITコンパイラのためSRI未対応 -->
+    <!-- 本番環境ではビルド時にTailwind CSSをコンパイルして使用することを強く推奨 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js with SRI (Subresource Integrity) -->
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js"
+            integrity="sha384-xw/ARJaqXKsFgDt0AhxLQ65mGvCjEjWEReZ6OqiLWJUlIi8y+4zOjsJgYY6YGDX0"
+            crossorigin="anonymous"
+            defer></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- ナビゲーション -->
+    <nav class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold text-emerald-600">TaskMate AI</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div x-data="simplePasswordReset()" class="max-w-md mx-auto mt-16 px-4">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+
+            <!-- ヘッダー -->
+            <div class="mb-6 text-center">
+                <div class="mx-auto w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900">パスワード変更</h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    メールアドレスと新しいパスワードを入力してください
+                </p>
+            </div>
+
+            <!-- 成功時 -->
+            <div x-show="success" x-cloak>
+                <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-lg font-semibold text-gray-900 mb-2">パスワードを変更しました</p>
+                    <a href="/agency/" class="inline-block mt-4 bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700">
+                        ログインする
+                    </a>
+                </div>
+            </div>
+
+            <!-- フォーム -->
+            <form @submit.prevent="resetPassword()" x-show="!success" x-cloak>
+                <div class="space-y-4">
+                    <!-- メールアドレス -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">
+                            メールアドレス
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            x-model="email"
+                            required
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="you@example.com"
+                        >
+                    </div>
+
+                    <!-- 現在のパスワード（オプション） -->
+                    <div>
+                        <label for="currentPassword" class="block text-sm font-medium text-gray-700">
+                            現在のパスワード
+                            <span class="text-xs text-gray-500">（覚えている場合）</span>
+                        </label>
+                        <input
+                            type="password"
+                            id="currentPassword"
+                            x-model="currentPassword"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="現在のパスワード"
+                        >
+                    </div>
+
+                    <!-- 新しいパスワード -->
+                    <div>
+                        <label for="newPassword" class="block text-sm font-medium text-gray-700">
+                            新しいパスワード
+                        </label>
+                        <input
+                            type="password"
+                            id="newPassword"
+                            x-model="newPassword"
+                            required
+                            minlength="8"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="8文字以上"
+                        >
+                    </div>
+
+                    <!-- パスワード確認 -->
+                    <div>
+                        <label for="confirmPassword" class="block text-sm font-medium text-gray-700">
+                            新しいパスワード（確認）
+                        </label>
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            x-model="confirmPassword"
+                            required
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="もう一度入力"
+                        >
+                    </div>
+                </div>
+
+                <!-- エラーメッセージ -->
+                <div x-show="error" x-cloak class="mt-4">
+                    <div class="rounded-md bg-red-50 p-4">
+                        <div class="flex">
+                            <div class="ml-3">
+                                <p class="text-sm font-medium text-red-800" x-text="error"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 送信ボタン -->
+                <button
+                    type="submit"
+                    :disabled="loading"
+                    class="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span x-show="!loading">パスワードを変更</span>
+                    <span x-show="loading" class="flex items-center">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        処理中...
+                    </span>
+                </button>
+
+                <div class="mt-6 text-center">
+                    <a href="/agency/" class="text-sm text-gray-600 hover:text-gray-900">
+                        ログインページに戻る
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function simplePasswordReset() {
+            return {
+                email: '',
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+                loading: false,
+                error: '',
+                success: false,
+
+                async resetPassword() {
+                    this.loading = true;
+                    this.error = '';
+
+                    // バリデーション
+                    if (this.newPassword !== this.confirmPassword) {
+                        this.error = 'パスワードが一致しません';
+                        this.loading = false;
+                        return;
+                    }
+
+                    if (this.newPassword.length < 8) {
+                        this.error = 'パスワードは8文字以上で入力してください';
+                        this.loading = false;
+                        return;
+                    }
+
+                    try {
+                        // Step 1: リセットトークンを取得
+                        const resetResponse = await fetch('/.netlify/functions/password-reset-request', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: this.email })
+                        });
+
+                        const resetData = await resetResponse.json();
+
+                        if (!resetResponse.ok || !resetData.token) {
+                            // 現在のパスワードで認証を試みる
+                            if (this.currentPassword) {
+                                const authResponse = await fetch('/.netlify/functions/agency-auth', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        email: this.email,
+                                        password: this.currentPassword
+                                    })
+                                });
+
+                                if (authResponse.ok) {
+                                    // 認証成功 - 直接パスワード更新
+                                    const updateResponse = await fetch('/.netlify/functions/agency-update-password', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${(await authResponse.json()).token}`
+                                        },
+                                        body: JSON.stringify({
+                                            newPassword: this.newPassword
+                                        })
+                                    });
+
+                                    if (updateResponse.ok) {
+                                        this.success = true;
+                                        return;
+                                    }
+                                }
+                            }
+
+                            this.error = 'メールアドレスが登録されていないか、現在のパスワードが正しくありません';
+                            this.loading = false;
+                            return;
+                        }
+
+                        // Step 2: トークンを使ってパスワードをリセット
+                        const confirmResponse = await fetch('/.netlify/functions/password-reset-confirm', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                token: resetData.token,
+                                password: this.newPassword
+                            })
+                        });
+
+                        const confirmData = await confirmResponse.json();
+
+                        if (confirmResponse.ok && confirmData.success) {
+                            this.success = true;
+                        } else {
+                            this.error = confirmData.error || 'パスワードの変更に失敗しました';
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.error = 'ネットワークエラーが発生しました';
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            };
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</body>
+</html>

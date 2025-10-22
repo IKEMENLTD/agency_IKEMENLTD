@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMate AI - 代理店管理システム</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../images/logo.png">
+    <link rel="apple-touch-icon" href="../images/logo.png">
+
+    <!-- ⚠️ セキュリティ警告: cdn.tailwindcss.comはJITコンパイラのためSRI未対応 -->
+    <!-- 本番環境ではビルド時にTailwind CSSをコンパイルして使用することを強く推奨 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js with SRI (Subresource Integrity) -->
+    <!-- 🔧 DEBUGGING: SRI temporarily removed to check if it's blocking Alpine.js -->
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js"
+            crossorigin="anonymous"
+            defer></script>
+    <!-- Original with SRI (restore after debugging):
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js"
+            integrity="sha384-xw/ARJaqXKsFgDt0AhxLQ65mGvCjEjWEReZ6OqiLWJUlIi8y+4zOjsJgYY6YGDX0"
+            crossorigin="anonymous"
+            defer></script>
+    -->
+
+    <!-- Font Awesome with SRI -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+            integrity="sha384-DxAVhx0HqN0LqmqPMxCh/J6tP/4tjN6VJxqF1Fv9qKqvPvZwC8x3sE9LqLTR3Ls1"
+            crossorigin="anonymous"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* ===== レスポンシブ対応 (275px〜1440px) ===== */
+
+        /* 超小型モバイル (275px-374px) */
+        @media (min-width: 275px) and (max-width: 374px) {
+            body { font-size: 13px; }
+            .dashboard-container { padding: 0.5rem !important; }
+            .stat-card { padding: 0.75rem !important; }
+            .stat-card h3 { font-size: 0.7rem !important; }
+            .stat-card .stat-value { font-size: 1.25rem !important; }
+            .btn { padding: 0.5rem 0.75rem !important; font-size: 0.75rem !important; }
+            .tab-button { font-size: 0.7rem !important; padding: 0.5rem !important; }
+            .table-responsive { font-size: 0.7rem !important; }
+            .table-responsive th, .table-responsive td { padding: 0.375rem !important; }
+            h1 { font-size: 1.25rem !important; }
+            h2 { font-size: 1.1rem !important; }
+            h3 { font-size: 0.95rem !important; }
+        }
+
+        /* 小型モバイル (375px-639px) */
+        @media (min-width: 375px) and (max-width: 639px) {
+            body { font-size: 14px; }
+            .dashboard-container { padding: 0.75rem !important; }
+            .stat-card { padding: 1rem !important; }
+            .stat-card h3 { font-size: 0.75rem !important; }
+            .stat-card .stat-value { font-size: 1.5rem !important; }
+            .btn { padding: 0.625rem 1rem !important; font-size: 0.875rem !important; }
+            .tab-button { font-size: 0.75rem !important; padding: 0.625rem 0.75rem !important; }
+            .table-responsive { font-size: 0.75rem !important; }
+            h1 { font-size: 1.5rem !important; }
+            h2 { font-size: 1.25rem !important; }
+        }
+
+        /* 大型モバイル (640px-767px) */
+        @media (min-width: 640px) and (max-width: 767px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+
+        /* タブレット (768px-1023px) */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+
+        /* デスクトップ (1024px以上) */
+        @media (min-width: 1024px) {
+            .stat-grid { grid-template-columns: repeat(4, 1fr) !important; }
+        }
+
+        /* 大型デスクトップ (1280px-1440px) */
+        @media (min-width: 1280px) {
+            .dashboard-container { max-width: 1400px; margin: 0 auto; }
+        }
+
+        /* テーブルのレスポンシブ対応 */
+        @media (max-width: 767px) {
+            .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table-scroll table { min-width: 600px; }
+        }
+
+        /* レスポンシブユーティリティ */
+        .responsive-padding { padding: clamp(0.5rem, 2vw, 2rem); }
+        .responsive-text { font-size: clamp(0.875rem, 1.5vw, 1rem); }
+        .responsive-heading { font-size: clamp(1.25rem, 3vw, 2rem); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-emerald-50 to-green-50 min-h-screen" x-data="agencyDashboard()" x-init="init()" x-cloak>
+    <!-- ログイン画面 -->
+    <div x-show="!isAuthenticated && !showRegister" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md border border-emerald-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-600 to-green-600 rounded-full mb-4">
+                    <i class="fas fa-chart-line text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">代理店管理システム</h1>
+                <p class="text-gray-600 mt-2">TaskMate AI パートナーポータル</p>
+            </div>
+
+            <form @submit.prevent="login()" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                    <input type="email" x-model="loginForm.email" autocomplete="email" required
+                           class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                           placeholder="agency@example.com">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">パスワード</label>
+                    <input type="password" x-model="loginForm.password" autocomplete="current-password" required
+                           class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                           placeholder="••••••••">
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center">
+                        <input type="checkbox" x-model="loginForm.remember" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="ml-2 text-sm text-gray-600">ログイン状態を保持</span>
+                    </label>
+                    <a href="/agency/reset-password.html" class="text-sm text-emerald-600 hover:text-emerald-700">パスワードを忘れた方</a>
+                </div>
+
+                <button type="submit" :disabled="loading"
+                        class="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="!loading">ログイン</span>
+                    <span x-show="loading" class="inline-flex items-center">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> ログイン中...
+                    </span>
+                </button>
+
+                <!-- エラーメッセージ（アクションボタン付き） -->
+                <div x-show="loginError" class="bg-red-50 border border-red-200 text-red-700 px-4 sm:px-6 py-4 rounded-lg space-y-3">
+                    <!-- エラーメッセージ -->
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-circle mt-0.5 mr-2 flex-shrink-0"></i>
+                        <span x-text="loginError" class="text-sm sm:text-base"></span>
+                    </div>
+
+                    <!-- アクションボタン（存在する場合のみ表示） -->
+                    <div x-show="loginErrorData && loginErrorData.actions && loginErrorData.actions.length > 0" class="flex flex-col gap-2 mt-3 pt-3 border-t border-red-300">
+                        <template x-for="action in (loginErrorData && loginErrorData.actions) || []" :key="action.type">
+                            <!-- LINE友達追加ボタン -->
+                            <a x-show="action.type === 'add_line_friend'"
+                               :href="action.url"
+                               target="_blank"
+                               class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 sm:py-3 px-4 rounded-lg transition-colors text-center text-sm sm:text-base">
+                                <i class="fab fa-line mr-2"></i>
+                                <span x-text="action.label"></span>
+                            </a>
+
+                            <!-- サポート問い合わせボタン -->
+                            <a x-show="action.type === 'contact_support'"
+                               :href="action.url"
+                               target="_blank"
+                               class="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 sm:py-3 px-4 rounded-lg transition-colors text-center text-sm sm:text-base border border-gray-300">
+                                <i class="fas fa-envelope mr-2"></i>
+                                <span x-text="action.label"></span>
+                            </a>
+
+                            <!-- リトライボタン -->
+                            <button x-show="action.type === 'retry'"
+                                    @click="loginError = ''; loginErrorData = null"
+                                    class="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium py-2 sm:py-3 px-4 rounded-lg transition-colors text-sm sm:text-base border border-blue-300">
+                                <i class="fas fa-redo mr-2"></i>
+                                <span x-text="action.label"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </form>
+
+            <div class="mt-8 pt-6 border-t border-gray-200 text-center space-y-3">
+                <p class="text-sm text-gray-600">
+                    代理店登録をご希望の方は
+                    <button @click="showRegister = true" class="text-emerald-600 hover:text-emerald-700 font-medium">こちら</button>
+                </p>
+                <p class="text-sm text-gray-600">
+                    <a href="/" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-arrow-left mr-1"></i> メインページに戻る
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新規登録画面 -->
+    <div x-show="!isAuthenticated && showRegister" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-lg border border-emerald-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-600 to-green-600 rounded-full mb-4">
+                    <i class="fas fa-user-plus text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">代理店新規登録</h1>
+                <p class="text-gray-600 mt-2">TaskMate AI パートナー登録</p>
+            </div>
+
+            <!-- プログレスインジケーター -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between max-w-md mx-auto">
+                    <!-- Step 1: 基本情報 -->
+                    <div class="flex flex-col items-center flex-1">
+                        <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold mb-2">
+                            <i class="fas fa-check text-sm"></i>
+                        </div>
+                        <span class="text-xs font-medium text-emerald-600">基本情報</span>
+                    </div>
+
+                    <!-- Connector -->
+                    <div class="flex-1 h-1 bg-gray-300 mx-2 relative" style="top: -12px;">
+                        <div class="h-full bg-emerald-600 transition-all duration-500" style="width: 0%;" x-bind:style="registerSuccess ? 'width: 100%' : 'width: 0%'"></div>
+                    </div>
+
+                    <!-- Step 2: LINE連携 -->
+                    <div class="flex flex-col items-center flex-1">
+                        <div class="w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center font-bold mb-2"
+                             x-bind:class="registerSuccess ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-600'">
+                            <i class="fab fa-line text-sm"></i>
+                        </div>
+                        <span class="text-xs font-medium transition-colors duration-300"
+                              x-bind:class="registerSuccess ? 'text-emerald-600' : 'text-gray-500'">LINE連携</span>
+                    </div>
+
+                    <!-- Connector -->
+                    <div class="flex-1 h-1 bg-gray-300 mx-2 relative" style="top: -12px;"></div>
+
+                    <!-- Step 3: 完了 -->
+                    <div class="flex flex-col items-center flex-1">
+                        <div class="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold mb-2">
+                            <i class="fas fa-flag-checkered text-sm"></i>
+                        </div>
+                        <span class="text-xs font-medium text-gray-500">完了</span>
+                    </div>
+                </div>
+            </div>
+
+            <form @submit.prevent="register()" class="space-y-4">
+                <!-- 会社情報 -->
+                <div class="space-y-4 pb-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700">会社情報</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">会社名 *</label>
+                        <input type="text" x-model="registerForm.company_name" autocomplete="organization" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="株式会社〇〇">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">代理店名 *</label>
+                        <input type="text" x-model="registerForm.agency_name" autocomplete="organization" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="〇〇営業所">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">住所</label>
+                        <input type="text" x-model="registerForm.address" autocomplete="street-address"
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="東京都〇〇区...">
+                    </div>
+                </div>
+
+                <!-- 担当者情報 -->
+                <div class="space-y-4 pb-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700">担当者情報</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">担当者名 *</label>
+                        <input type="text" x-model="registerForm.contact_name" autocomplete="name" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="山田太郎">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">メールアドレス *</label>
+                        <input type="email" x-model="registerForm.email" autocomplete="email" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="contact@company.com">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">電話番号 *</label>
+                        <input type="tel" x-model="registerForm.phone" autocomplete="tel" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="03-1234-5678">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            招待コード *
+                            <span class="text-xs text-gray-500 font-normal ml-2">（代理店から提供されたコード）</span>
+                        </label>
+                        <input type="text" x-model="registerForm.invitation_code" autocomplete="off" required
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors font-mono"
+                               placeholder="例: abc123xyz456"
+                               pattern="[a-zA-Z0-9]{8,20}"
+                               title="招待コードは英数字8〜20文字です">
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            代理店担当者から提供された招待コードを入力してください
+                        </p>
+                    </div>
+                </div>
+
+                <!-- パスワード情報 -->
+                <div class="space-y-4 pb-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-700">パスワード設定</h3>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">パスワード *</label>
+                        <input type="password" x-model="registerForm.password" autocomplete="new-password" required minlength="8"
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="8文字以上で入力">
+                        <p class="text-xs text-gray-500 mt-1">英大文字、英小文字、数字、記号のうち2種類以上を含めてください</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">パスワード（確認）*</label>
+                        <input type="password" x-model="registerForm.password_confirm" autocomplete="new-password" required minlength="8"
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                               placeholder="もう一度入力">
+                    </div>
+                </div>
+
+                <!-- 利用規約 -->
+                <div>
+                    <label class="flex items-start">
+                        <input type="checkbox" x-model="registerForm.agree_terms" required
+                               class="mt-1 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <span class="ml-2 text-sm text-gray-600">
+                            <a href="terms.html" target="_blank" class="text-emerald-600 hover:text-emerald-700">利用規約</a>および
+                            <a href="privacy.html" target="_blank" class="text-emerald-600 hover:text-emerald-700">プライバシーポリシー</a>
+                            に同意します
+                        </span>
+                    </label>
+                </div>
+
+                <button type="submit" :disabled="loading"
+                        class="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span x-show="!loading">登録する</span>
+                    <span x-show="loading" class="inline-flex items-center">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> 登録中...
+                    </span>
+                </button>
+
+                <div x-show="registerError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <span x-text="registerError"></span>
+                </div>
+
+                <div x-show="registerSuccess" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <span>登録が完了しました！ログイン画面に移動します...</span>
+                </div>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-gray-200 text-center space-y-3">
+                <p class="text-sm text-gray-600">
+                    既にアカウントをお持ちの方は
+                    <button @click="showRegister = false" class="text-emerald-600 hover:text-emerald-700 font-medium">ログイン</button>
+                </p>
+                <p class="text-sm text-gray-600">
+                    <a href="/" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-arrow-left mr-1"></i> メインページに戻る
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- LINE認証中ローディング画面 -->
+    <div x-show="loading && (registerSuccess || (!isAuthenticated && !showRegister))"
+         x-cloak
+         class="fixed inset-0 bg-gradient-to-br from-emerald-600 to-green-600 overflow-y-auto z-50">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="text-center text-white">
+                <!-- アニメーション付きLINEアイコン -->
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-white rounded-full mb-6 animate-pulse">
+                    <i class="fab fa-line text-5xl text-emerald-600"></i>
+                </div>
+
+                <!-- ローディングスピナー -->
+                <div class="mb-6">
+                    <div class="inline-block">
+                        <svg class="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- メッセージ -->
+                <div class="space-y-3">
+                    <h2 class="text-2xl sm:text-3xl font-bold">LINE連携処理中...</h2>
+                    <p class="text-sm sm:text-base text-emerald-100">
+                        しばらくお待ちください
+                    </p>
+                    <div class="flex items-center justify-center space-x-1 text-emerald-100">
+                        <span class="animate-bounce" style="animation-delay: 0s;">●</span>
+                        <span class="animate-bounce" style="animation-delay: 0.2s;">●</span>
+                        <span class="animate-bounce" style="animation-delay: 0.4s;">●</span>
+                    </div>
+                </div>
+
+                <!-- 注意事項 -->
+                <div class="mt-8 bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-4 max-w-md mx-auto">
+                    <p class="text-xs sm:text-sm text-emerald-50">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        このページを閉じないでください
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登録完了画面 -->
+    <div x-show="registerSuccess && !loading && !showLineConfirmModal"
+         x-cloak
+         class="fixed inset-0 bg-gradient-to-br from-emerald-600 to-green-600 overflow-y-auto p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 w-full max-w-2xl my-8 mx-auto">
+            <!-- 成功アニメーション -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-emerald-600 to-green-600 rounded-full mb-6 animate-bounce">
+                    <i class="fas fa-check text-5xl text-white"></i>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+                    登録完了！
+                </h1>
+                <p class="text-lg text-gray-600">
+                    TaskMate AI 代理店パートナーへようこそ
+                </p>
+            </div>
+
+            <!-- 詳細情報カード -->
+            <div class="space-y-4 mb-8">
+                <!-- 代理店コード -->
+                <div class="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-emerald-900">
+                            <i class="fas fa-id-card mr-2"></i>あなたの代理店コード
+                        </h3>
+                        <span class="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full">
+                            保存推奨
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between bg-white rounded-lg p-4">
+                        <code class="text-2xl sm:text-3xl font-bold text-emerald-600" x-text="pendingRegistrationData?.agency_code || 'AG...'"></code>
+                        <button @click="copyToClipboard(pendingRegistrationData?.agency_code || '', $event)"
+                                class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-copy mr-1"></i> コピー
+                        </button>
+                    </div>
+                    <p class="text-xs text-emerald-700 mt-3">
+                        このコードを使って、下位代理店を招待できます
+                    </p>
+                </div>
+
+                <!-- 次のステップ -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                    <h3 class="text-sm font-semibold text-blue-900 mb-4">
+                        <i class="fas fa-route mr-2"></i>次のステップ
+                    </h3>
+                    <ol class="space-y-3 text-sm text-blue-800">
+                        <li class="flex items-start">
+                            <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full mr-3 flex-shrink-0 text-xs font-bold">1</span>
+                            <span>ログインして代理店ダッシュボードにアクセス</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full mr-3 flex-shrink-0 text-xs font-bold">2</span>
+                            <span>トラッキングリンクを作成してお客様に共有</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full mr-3 flex-shrink-0 text-xs font-bold">3</span>
+                            <span>成約ごとに報酬が自動計算されます</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- 機能紹介 -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 text-center">
+                        <i class="fas fa-chart-line text-2xl text-purple-600 mb-2"></i>
+                        <p class="text-xs font-semibold text-purple-900">リアルタイム分析</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-4 text-center">
+                        <i class="fas fa-users text-2xl text-orange-600 mb-2"></i>
+                        <p class="text-xs font-semibold text-orange-900">4段階紹介制度</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200 rounded-lg p-4 text-center">
+                        <i class="fas fa-yen-sign text-2xl text-pink-600 mb-2"></i>
+                        <p class="text-xs font-semibold text-pink-900">自動報酬計算</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button @click="showRegister = false; registerSuccess = false; pendingRegistrationData = null"
+                        class="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white py-4 px-6 rounded-xl font-bold text-lg hover:from-emerald-700 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    ログイン画面へ
+                </button>
+            </div>
+
+            <!-- カウントダウン -->
+            <p class="text-center text-sm text-gray-500 mt-6">
+                <i class="fas fa-clock mr-1"></i>
+                3秒後に自動的にログイン画面に移動します
+            </p>
+        </div>
+    </div>
+
+    <!-- LINE連携確認モーダル -->
+    <div x-show="showLineConfirmModal"
+         x-cloak
+         class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto p-4 z-50"
+         @click.self="showLineConfirmModal = false">
+        <div class="relative bg-white rounded-xl shadow-2xl p-6 sm:p-8 w-full max-w-md my-8 mx-auto transform transition-all"
+             @click.stop>
+            <!-- ヘッダー -->
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-600 to-green-600 rounded-full mb-4">
+                    <i class="fab fa-line text-3xl text-white"></i>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">LINE連携を開始します</h2>
+                <p class="text-sm text-gray-600">あと少しで登録完了です！</p>
+            </div>
+
+            <!-- 説明セクション -->
+            <div class="space-y-4 mb-6">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                    <p class="text-sm font-semibold text-emerald-900 mb-2">
+                        <i class="fas fa-info-circle mr-2"></i>次のステップ
+                    </p>
+                    <ol class="text-sm text-emerald-800 space-y-1 ml-6 list-decimal">
+                        <li>LINEアプリでログイン</li>
+                        <li>アカウント連携を承認</li>
+                        <li>登録完了</li>
+                    </ol>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p class="text-sm text-amber-800">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <strong>重要：</strong>LINEアプリがインストールされていることを確認してください
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p class="text-xs text-blue-800">
+                        <i class="fas fa-shield-alt mr-2"></i>
+                        LINE連携は本人確認のために必要です。お客様の個人情報は安全に保護されます。
+                    </p>
+                </div>
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button @click="proceedToLineAuth()"
+                        :disabled="loading"
+                        class="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                    <i class="fab fa-line mr-2 text-lg"></i>
+                    <span x-show="!loading">LINE連携を開始</span>
+                    <span x-show="loading" class="inline-flex items-center">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> 準備中...
+                    </span>
+                </button>
+                <button @click="showLineConfirmModal = false"
+                        :disabled="loading"
+                        class="flex-1 sm:flex-initial sm:px-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    キャンセル
+                </button>
+            </div>
+
+            <!-- 閉じるボタン（右上） -->
+            <button @click="showLineConfirmModal = false"
+                    :disabled="loading"
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                    aria-label="閉じる">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ダッシュボード -->
+    <div x-show="isAuthenticated" class="min-h-screen">
+        <!-- ヘッダー -->
+        <header class="bg-white shadow-sm border-b border-emerald-100">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center space-x-2 sm:space-x-4">
+                        <div class="inline-flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-600 to-green-600 rounded-full flex-shrink-0">
+                            <i class="fas fa-chart-line text-white text-sm sm:text-base"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h1 class="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-gray-900 whitespace-nowrap">TaskMate AI 代理店</h1>
+                            <p class="text-xs sm:text-sm text-gray-600 truncate max-w-[150px] sm:max-w-[200px] md:max-w-none" x-text="`${agencyInfo.name} - ${userInfo.name}さん`"></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 sm:space-x-4">
+                        <div class="text-right hidden sm:block">
+                            <p class="text-xs sm:text-sm text-gray-600">今月の成果</p>
+                            <p class="text-sm sm:text-base md:text-lg font-bold text-emerald-600" x-text="`¥${stats.monthlyCommission.toLocaleString()}`"></p>
+                        </div>
+                        <a href="/"
+                           class="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 sm:px-4 sm:py-2 rounded-lg transition-colors border border-gray-300 inline-flex items-center">
+                            <i class="fas fa-home sm:mr-2"></i> <span class="hidden sm:inline">メインページ</span>
+                        </a>
+                        <button @click="logout()"
+                                class="bg-red-500 hover:bg-red-600 text-white p-2 sm:px-4 sm:py-2 rounded-lg transition-colors">
+                            <i class="fas fa-sign-out-alt sm:mr-2"></i> <span class="hidden sm:inline">ログアウト</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- メインコンテンツ -->
+        <main class="dashboard-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 統計カード -->
+            <div class="stat-grid grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm text-gray-600">作成リンク数</h3>
+                            <p class="stat-value text-2xl font-bold text-gray-900 mt-2" x-text="stats.totalLinks"></p>
+                        </div>
+                        <div class="bg-emerald-100 rounded-full p-3">
+                            <i class="fas fa-link text-emerald-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm text-gray-600">総クリック数</h3>
+                            <p class="stat-value text-2xl font-bold text-gray-900 mt-2" x-text="stats.totalClicks"></p>
+                        </div>
+                        <div class="bg-green-100 rounded-full p-3">
+                            <i class="fas fa-mouse-pointer text-green-600"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm text-gray-600">コンバージョン数</h3>
+                            <p class="stat-value text-2xl font-bold text-gray-900 mt-2" x-text="stats.totalConversions"></p>
+                        </div>
+                        <div class="bg-green-100 rounded-full p-3">
+                            <i class="fas fa-users text-green-700"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm text-gray-600">コンバージョン率</h3>
+                            <p class="stat-value text-2xl font-bold text-gray-900 mt-2" x-text="`${stats.conversionRate}%`"></p>
+                        </div>
+                        <div class="bg-emerald-100 rounded-full p-3">
+                            <i class="fas fa-percentage text-emerald-700"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4段階代理店制度 - 階層情報カード -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-emerald-100 mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-sitemap text-emerald-600 mr-2"></i>
+                        あなたの階層情報
+                    </h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
+                    <!-- 招待コード（モバイルで最初に表示） -->
+                    <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-3 sm:p-4 border border-amber-200 order-first md:order-last">
+                        <p class="text-xs sm:text-sm text-gray-600 mb-1 sm:mb-2">あなたの招待コード</p>
+                        <div class="flex items-center space-x-1 sm:space-x-2">
+                            <code class="bg-white px-2 py-3 sm:px-3 sm:py-4 rounded border border-amber-300 font-mono text-sm sm:text-base font-semibold text-gray-900 flex-1 break-all" x-text="agencyInfo.code"></code>
+                            <button @click="copyToClipboard(agencyInfo.code, $event)"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-3 sm:px-3 sm:py-4 rounded transition-colors flex-shrink-0"
+                                    title="コピー">
+                                <i class="fas fa-copy text-sm sm:text-base"></i>
+                            </button>
+                        </div>
+                        <p class="text-[10px] sm:text-xs text-gray-500 mt-1 sm:mt-2" x-show="agencyInfo.level < 4">
+                            新規代理店を招待できます
+                        </p>
+                        <p class="text-[10px] sm:text-xs text-red-500 mt-1 sm:mt-2" x-show="agencyInfo.level >= 4">
+                            最大階層に達しています
+                        </p>
+                    </div>
+
+                    <!-- 階層レベル -->
+                    <div class="bg-gradient-to-br from-emerald-50 to-green-50 rounded-lg p-3 sm:p-4 border border-emerald-200">
+                        <p class="text-xs sm:text-sm text-gray-600 mb-1">階層レベル</p>
+                        <p class="text-lg sm:text-xl md:text-2xl font-bold text-emerald-600 whitespace-nowrap" x-text="getLevelLabel(agencyInfo.level)">
+                            統括代理店
+                        </p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 mt-1">
+                            Level <span x-text="agencyInfo.level"></span>
+                        </p>
+                    </div>
+
+                    <!-- 自己報酬率 -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 sm:p-4 border border-blue-200">
+                        <p class="text-xs sm:text-sm text-gray-600 mb-1">自己報酬率</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-blue-600">
+                            <span x-text="agencyInfo.own_commission_rate"></span>%
+                        </p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 mt-1">案件成約時の報酬</p>
+                    </div>
+
+                    <!-- リファラル報酬率 -->
+                    <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 sm:p-4 border border-purple-200">
+                        <p class="text-xs sm:text-sm text-gray-600 mb-1 whitespace-nowrap">傘下からの自動吸い上げ</p>
+                        <p class="text-2xl sm:text-3xl font-bold text-purple-600">
+                            <span x-text="getReferralRate()"></span>%
+                        </p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 mt-1">下位代理店の成約時</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- タブメニュー -->
+            <div class="bg-white rounded-xl shadow-lg border border-emerald-100 mb-8">
+                <div class="border-b border-emerald-100 overflow-x-auto">
+                    <nav class="flex space-x-1 sm:space-x-4 md:space-x-8 px-2 sm:px-4 md:px-6 min-w-max" aria-label="Tabs">
+                        <button @click="activeTab = 'create'"
+                                :class="activeTab === 'create' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-plus-circle sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">リンク作成</span>
+                        </button>
+                        <button @click="activeTab = 'links'; loadTrackingLinks()"
+                                :class="activeTab === 'links' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-link sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">リンク管理</span>
+                        </button>
+                        <button @click="activeTab = 'analytics'; loadAnalytics()"
+                                :class="activeTab === 'analytics' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-chart-bar sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">分析</span>
+                        </button>
+                        <button @click="activeTab = 'commissions'; loadCommissions(); loadCommissionHistory()"
+                                :class="activeTab === 'commissions' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-yen-sign sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">報酬</span>
+                        </button>
+                        <button @click="activeTab = 'billing'; loadBillingStats()"
+                                :class="activeTab === 'billing' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-credit-card sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">課金状況</span>
+                        </button>
+                        <button @click="activeTab = 'settings'"
+                                :class="activeTab === 'settings' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                                class="py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap flex-shrink-0 flex flex-col sm:flex-row items-center">
+                            <i class="fas fa-cog sm:mr-2 text-xs sm:text-sm"></i> <span class="text-[10px] sm:text-xs md:text-sm">設定</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- リンク作成タブ -->
+                <div x-show="activeTab === 'create'" class="p-4 sm:p-6">
+                    <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">リンク作成</h2>
+
+                    <form @submit.prevent="createLink()" class="space-y-3 sm:space-y-4 max-w-2xl">
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">キャンペーン名 *</label>
+                            <input type="text" x-model="newLink.name" autocomplete="off" required
+                                   class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                   placeholder="例: 2024年春のキャンペーン">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">流入元</label>
+                                <input type="text" x-model="newLink.utm_source" autocomplete="off"
+                                       class="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                       placeholder="例: facebook">
+                            </div>
+                            <div>
+                                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">メディア</label>
+                                <input type="text" x-model="newLink.utm_medium" autocomplete="off"
+                                       class="w-full px-3 sm:px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                       placeholder="例: social">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">キャンペーン</label>
+                            <input type="text" x-model="newLink.utm_campaign" autocomplete="off"
+                                   class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                   placeholder="例: spring_sale_2024">
+                        </div>
+
+                        <!-- Info: LINE URL is automatically set from environment -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2 sm:mr-3 text-sm flex-shrink-0"></i>
+                                <div class="min-w-0">
+                                    <p class="text-xs sm:text-sm text-blue-800 font-medium">リダイレクト先について</p>
+                                    <p class="text-xs sm:text-sm text-blue-700 mt-1">トラッキングリンクは自動的にTaskMate公式LINEアカウントへリダイレクトされます。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4">
+                            <button type="submit" :disabled="loading"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span x-show="!loading">リンクを作成</span>
+                                <span x-show="loading">
+                                    <i class="fas fa-spinner fa-spin mr-2"></i> 作成中...
+                                </span>
+                            </button>
+                            <button type="button" @click="resetForm()"
+                                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors">
+                                リセット
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- 作成成功メッセージ -->
+                    <div x-show="createdLink" class="mt-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                        <p class="text-emerald-800 font-semibold mb-2">✅ トラッキングリンクを作成しました！</p>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" :value="createdLink" readonly
+                                   class="flex-1 px-3 py-2 bg-white border border-emerald-300 rounded-lg text-sm">
+                            <button @click="copyToClipboard(createdLink, $event)"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-copy mr-2"></i> コピー
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- リンク管理タブ -->
+                <div x-show="activeTab === 'links'" class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">作成済みリンク一覧</h2>
+
+                    <div class="table-scroll overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-emerald-50">
+                                <tr>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">キャンペーン</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">コード</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">クリック</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">CV</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">作成日</th>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="link in trackingLinks" :key="link.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="link.name"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <code x-text="link.tracking_code" class="bg-gray-100 px-2 py-1 rounded"></code>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="link.visit_count"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="link.conversion_count"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(link.created_at)"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            <button @click="copyToClipboard(getTrackingUrl(link.tracking_code), $event)"
+                                                    class="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-3 py-1 rounded-lg mr-2 transition-colors">
+                                                <i class="fas fa-copy"></i> コピー
+                                            </button>
+                                            <button @click="viewLinkDetails(link)"
+                                                    class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded-lg transition-colors">
+                                                <i class="fas fa-chart-line"></i> 詳細
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 分析タブ -->
+                <div x-show="activeTab === 'analytics'" class="p-4 sm:p-6">
+                    <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">パフォーマンス分析</h2>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                        <!-- 期間別パフォーマンス -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">期間別</h3>
+                            <canvas id="performanceChart"></canvas>
+                        </div>
+
+                        <!-- コンバージョンファネル -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 whitespace-nowrap">CVファネル</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-sm text-gray-600">クリック</span>
+                                        <span class="text-sm font-semibold" x-text="stats.totalClicks"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-8">
+                                        <div class="bg-emerald-600 h-8 rounded-full flex items-center justify-center text-white text-xs" style="width: 100%">100%</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-2">
+                                        <span class="text-sm text-gray-600">LINE友達追加</span>
+                                        <span class="text-sm font-semibold" x-text="stats.totalConversions"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-8">
+                                        <div class="bg-green-600 h-8 rounded-full flex items-center justify-center text-white text-xs" :style="`width: ${stats.conversionRate}%`">
+                                            <span x-text="`${stats.conversionRate}%`"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- トップパフォーマンスキャンペーン -->
+                    <div class="mt-4 sm:mt-6 bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                        <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">トップキャンペーン</h3>
+                        <div class="table-scroll overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">順位</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">名前</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">クリック</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">CV</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">CVR</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="(campaign, index) in topCampaigns" :key="campaign.id">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full"
+                                                      :class="index === 0 ? 'bg-yellow-100 text-yellow-800' : index === 1 ? 'bg-gray-100 text-gray-800' : index === 2 ? 'bg-orange-100 text-orange-800' : 'bg-gray-50 text-gray-600'"
+                                                      x-text="index + 1"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="campaign.name"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="campaign.clicks"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="campaign.conversions"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 py-1 text-xs rounded-full"
+                                                      :class="campaign.cvr >= 10 ? 'bg-green-100 text-green-800' : campaign.cvr >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
+                                                      x-text="`${campaign.cvr}%`"></span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 報酬タブ -->
+                <div x-show="activeTab === 'commissions'" class="p-4 sm:p-6">
+                    <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">報酬管理</h2>
+
+                    <!-- 報酬サマリー -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                        <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl p-4 sm:p-6 text-white">
+                            <p class="text-xs sm:text-sm opacity-90 whitespace-nowrap">今月の報酬</p>
+                            <p class="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2" x-text="`¥${stats.monthlyCommission.toLocaleString()}`"></p>
+                            <p class="text-[10px] sm:text-xs mt-1 sm:mt-2 opacity-75 whitespace-nowrap">手数料率: <span x-text="`${agencyInfo.own_commission_rate}%`"></span></p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+                            <p class="text-xs sm:text-sm text-gray-600 whitespace-nowrap">前月の報酬</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900 mt-1 sm:mt-2" x-text="`¥${stats.lastMonthCommission.toLocaleString()}`"></p>
+                        </div>
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+                            <p class="text-xs sm:text-sm text-gray-600 whitespace-nowrap">累計報酬</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900 mt-1 sm:mt-2" x-text="`¥${stats.totalCommission.toLocaleString()}`"></p>
+                        </div>
+                    </div>
+
+                    <!-- 4段階代理店制度 - 詳細コミッション履歴 -->
+                    <div class="bg-white rounded-lg border border-emerald-200 mb-8">
+                        <div class="px-6 py-4 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-green-50">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
+                                    <i class="fas fa-layer-group text-emerald-600 mr-1 sm:mr-2 text-xs sm:text-sm"></i>
+                                    分配履歴
+                                </h3>
+                                <button @click="loadCommissionHistory()"
+                                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded text-xs sm:text-sm transition-colors">
+                                    <i class="fas fa-sync-alt mr-1 text-xs sm:text-sm"></i> 更新
+                                </button>
+                            </div>
+                            <p class="text-[10px] sm:text-xs text-gray-600 mt-1">4段階リファラルシステムによる報酬分配の詳細</p>
+                        </div>
+                        <div class="table-scroll">
+                            <template x-if="loadingCommissions">
+                                <div class="p-12 text-center">
+                                    <i class="fas fa-spinner fa-spin text-3xl text-emerald-600 mb-4"></i>
+                                    <p class="text-gray-600">読み込み中...</p>
+                                </div>
+                            </template>
+                            <template x-if="!loadingCommissions && commissionHistory.length === 0">
+                                <div class="p-12 text-center">
+                                    <i class="fas fa-inbox text-5xl text-gray-300 mb-4"></i>
+                                    <p class="text-gray-600">コミッション履歴がありません</p>
+                                    <p class="text-sm text-gray-500 mt-2">案件成約または傘下からの吸い上げが発生すると表示されます</p>
+                                </div>
+                            </template>
+                            <template x-if="!loadingCommissions && commissionHistory.length > 0">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">日時</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">種別</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">総額</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">率</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">報酬</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">成約店</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">状況</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="commission in commissionHistory" :key="commission.id">
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-900" x-text="formatDateTime(commission.created_at)"></td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap">
+                                                    <span class="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full font-medium"
+                                                          :class="commission.commission_type === 'own' ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-700'"
+                                                          x-text="getCommissionTypeLabel(commission.commission_type)"></span>
+                                                </td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700" x-text="`¥${(commission.deal_amount || 0).toLocaleString()}`"></td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-700" x-text="`${commission.commission_rate || 0}%`"></td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm font-semibold text-emerald-600" x-text="`¥${(commission.commission_amount || 0).toLocaleString()}`"></td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap text-xs sm:text-sm text-gray-600" x-text="commission.closing_agency_name || '-'"></td>
+                                                <td class="px-3 sm:px-4 py-3 whitespace-nowrap">
+                                                    <span class="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full"
+                                                          :class="commission.payment_status === 'paid' ? 'bg-green-100 text-green-800' : commission.payment_status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
+                                                          x-text="getStatusLabel(commission.payment_status)"></span>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- 報酬履歴 -->
+                    <div class="bg-white rounded-lg border border-gray-200">
+                        <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900">報酬履歴</h3>
+                        </div>
+                        <div class="table-scroll overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">期間</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">CV数</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">売上</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">率</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">報酬</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">状態</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">支払日</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="commission in commissions" :key="commission.id">
+                                        <tr>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900" x-text="commission.period"></td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500" x-text="commission.conversions"></td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500" x-text="`¥${commission.sales.toLocaleString()}`"></td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500" x-text="`${commission.rate}%`"></td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-semibold text-gray-900" x-text="`¥${commission.amount.toLocaleString()}`"></td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                                <span class="px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs rounded-full"
+                                                      :class="commission.status === 'paid' ? 'bg-green-100 text-green-800' : commission.status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'"
+                                                      x-text="getStatusLabel(commission.status)"></span>
+                                            </td>
+                                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500" x-text="commission.payment_date || '-'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 課金状況タブ -->
+                <div x-show="activeTab === 'billing'" class="p-4 sm:p-6">
+                    <div class="flex justify-between items-center mb-4 sm:mb-6">
+                        <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 whitespace-nowrap">課金状況</h2>
+                        <div class="flex items-center space-x-2 sm:space-x-4">
+                            <span class="text-xs sm:text-sm text-gray-600 hidden sm:inline whitespace-nowrap">最終更新: <span x-text="billingStats.lastUpdated ? formatDateTime(billingStats.lastUpdated) : '-'"></span></span>
+                            <button @click="loadBillingStats()"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 sm:px-4 sm:py-2 rounded-lg transition-colors flex items-center">
+                                <i class="fas fa-sync-alt text-sm sm:mr-2"></i> <span class="hidden sm:inline">更新</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- サマリーカード -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 sm:p-6 text-white">
+                            <p class="text-xs sm:text-sm opacity-90 whitespace-nowrap">課金中ユーザー</p>
+                            <p class="text-2xl sm:text-3xl font-bold mt-2" x-text="billingStats.summary?.activeSubscribers || 0"></p>
+                            <p class="text-[10px] sm:text-xs mt-1 sm:mt-2 opacity-75 whitespace-nowrap">
+                                <i class="fas fa-check-circle mr-1 text-[10px] sm:text-xs"></i> 契約中
+                            </p>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+                            <p class="text-xs sm:text-sm text-gray-600 whitespace-nowrap">総CV数</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900 mt-2" x-text="billingStats.summary?.totalConversions || 0"></p>
+                            <p class="text-[10px] sm:text-xs mt-1 sm:mt-2 text-gray-500 whitespace-nowrap">
+                                <i class="fas fa-user-plus mr-1 text-[10px] sm:text-xs"></i> LINE追加済み
+                            </p>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+                            <p class="text-xs sm:text-sm text-gray-600 whitespace-nowrap">累計報酬(予定)</p>
+                            <p class="text-xl sm:text-2xl font-bold text-emerald-600 mt-2" x-text="`¥${(billingStats.summary?.totalCommission || 0).toLocaleString()}`"></p>
+                            <p class="text-[10px] sm:text-xs mt-1 sm:mt-2 text-gray-500 whitespace-nowrap">
+                                <i class="fas fa-calculator mr-1 text-[10px] sm:text-xs"></i> 率: <span x-text="`${billingStats.summary?.commissionRate || 0}%`"></span>
+                            </p>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+                            <p class="text-xs sm:text-sm text-gray-600 whitespace-nowrap">支払済報酬</p>
+                            <p class="text-xl sm:text-2xl font-bold text-gray-900 mt-2" x-text="`¥${(billingStats.summary?.paidCommission || 0).toLocaleString()}`"></p>
+                            <p class="text-[10px] sm:text-xs mt-1 sm:mt-2 text-gray-500 whitespace-nowrap">
+                                <i class="fas fa-check mr-1 text-[10px] sm:text-xs"></i> 確定済み
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 個別ユーザーの課金状態テーブル -->
+                    <div class="bg-white rounded-lg border border-gray-200">
+                        <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900">個別ユーザーの課金状態</h3>
+                            <p class="text-xs sm:text-sm text-gray-600 mt-1">紹介ユーザーの課金状況をリアルタイムで確認</p>
+                        </div>
+                        <div class="table-scroll overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">ユーザー</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">状態</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">開始日</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">終了日</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">プラン</th>
+                                        <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">報酬</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-if="!billingStats.billingUsers || billingStats.billingUsers.length === 0">
+                                        <tr>
+                                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                                <i class="fas fa-inbox text-3xl mb-2"></i>
+                                                <p>まだ課金ユーザーがいません</p>
+                                                <p class="text-sm mt-1">トラッキングリンクを作成して、ユーザーを紹介しましょう！</p>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-for="user in billingStats.billingUsers" :key="user.userId">
+                                        <tr class="hover:bg-gray-50" :class="user.isActive ? 'bg-green-50' : ''">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                                        <span x-text="user.displayName?.charAt(0) || '?'"></span>
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900" x-text="user.displayName"></div>
+                                                        <div class="text-xs text-gray-500" x-text="`ID: ${user.userId.substring(0, 8)}...`"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-3 py-1 text-xs font-semibold rounded-full"
+                                                      :class="{
+                                                          'bg-green-100 text-green-800': user.subscriptionStatus === 'active',
+                                                          'bg-blue-100 text-blue-800': user.subscriptionStatus === 'trialing',
+                                                          'bg-yellow-100 text-yellow-800': user.subscriptionStatus === 'past_due',
+                                                          'bg-red-100 text-red-800': user.subscriptionStatus === 'canceled',
+                                                          'bg-gray-100 text-gray-800': user.subscriptionStatus === 'free' || !user.subscriptionStatus
+                                                      }">
+                                                    <i class="fas fa-circle mr-1" :class="user.isActive ? 'fa-pulse' : ''"></i>
+                                                    <span x-text="getSubscriptionStatusLabel(user.subscriptionStatus)"></span>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <template x-if="user.subscriptionStartedAt">
+                                                    <span x-text="formatDate(user.subscriptionStartedAt)"></span>
+                                                </template>
+                                                <template x-if="!user.subscriptionStartedAt">
+                                                    <span class="text-gray-400">-</span>
+                                                </template>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <template x-if="user.subscriptionEndDate">
+                                                    <span x-text="formatDate(user.subscriptionEndDate)"></span>
+                                                </template>
+                                                <template x-if="!user.subscriptionEndDate && user.isActive">
+                                                    <span class="text-green-600">継続中</span>
+                                                </template>
+                                                <template x-if="!user.subscriptionEndDate && !user.isActive">
+                                                    <span class="text-gray-400">-</span>
+                                                </template>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                <template x-if="user.isPremium">
+                                                    <span class="text-yellow-600">
+                                                        <i class="fas fa-crown mr-1"></i> プレミアム
+                                                    </span>
+                                                </template>
+                                                <template x-if="!user.isPremium">
+                                                    <span class="text-gray-400">-</span>
+                                                </template>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold">
+                                                <template x-if="user.commission > 0">
+                                                    <span class="text-emerald-600" x-text="`¥${user.commission.toLocaleString()}`"></span>
+                                                </template>
+                                                <template x-if="user.commission === 0">
+                                                    <span class="text-gray-400">¥0</span>
+                                                </template>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 自動更新通知 -->
+                    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-blue-800 font-medium">リアルタイム自動更新</p>
+                                <p class="text-sm text-blue-700 mt-1">このページは30秒ごとに自動で最新の課金情報に更新されます。手動で更新したい場合は、右上の「更新」ボタンをクリックしてください。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 傘下からの報酬確定ユーザー -->
+                    <div class="mt-6 sm:mt-8 bg-white rounded-lg border border-purple-200">
+                        <div class="px-6 py-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 flex items-center">
+                                        <i class="fas fa-users text-purple-600 mr-2"></i>
+                                        傘下からの報酬確定ユーザー
+                                    </h3>
+                                    <p class="text-xs sm:text-sm text-gray-600 mt-1">あなたの傘下代理店が獲得したユーザーからのリファラル報酬</p>
+                                </div>
+                                <button @click="loadReferralUsers()" class="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded text-xs sm:text-sm transition-colors">
+                                    <i class="fas fa-sync-alt mr-1"></i> 更新
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Summary Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 sm:p-6 bg-gray-50">
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <p class="text-xs sm:text-sm text-gray-600">総ユーザー数</p>
+                                <p class="text-xl sm:text-2xl font-bold text-gray-900 mt-1" x-text="referralSummary.totalUsers">0</p>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <p class="text-xs sm:text-sm text-gray-600">契約中</p>
+                                <p class="text-xl sm:text-2xl font-bold text-green-600 mt-1" x-text="referralSummary.activeSubscriptions">0</p>
+                            </div>
+                            <div class="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg p-4 text-white">
+                                <p class="text-xs sm:text-sm opacity-90">リファラル報酬</p>
+                                <p class="text-xl sm:text-2xl font-bold mt-1" x-text="`¥${referralSummary.totalReferralCommission.toLocaleString()}`">¥0</p>
+                                <p class="text-xs mt-1 opacity-75">※課金中のユーザーのみ</p>
+                            </div>
+                        </div>
+
+                        <!-- Referral Users Table -->
+                        <div class="table-scroll overflow-x-auto">
+                            <template x-if="referralUsers.length === 0">
+                                <div class="p-12 text-center">
+                                    <i class="fas fa-users text-5xl text-gray-300 mb-4"></i>
+                                    <p class="text-gray-600">傘下からの報酬確定ユーザーがいません</p>
+                                    <p class="text-sm text-gray-500 mt-2">傘下代理店が獲得したユーザーが課金すると表示されます</p>
+                                </div>
+                            </template>
+                            <template x-if="referralUsers.length > 0">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">LINE名</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">課金状態</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">獲得代理店</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">課金開始日</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">リファラル率</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">あなたの報酬</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="user in referralUsers" :key="user.id">
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center">
+                                                        <template x-if="user.line_picture">
+                                                            <img :src="user.line_picture" class="w-8 h-8 rounded-full mr-2" alt="">
+                                                        </template>
+                                                        <template x-if="!user.line_picture">
+                                                            <div class="w-8 h-8 rounded-full bg-gray-300 mr-2 flex items-center justify-center">
+                                                                <i class="fas fa-user text-gray-500 text-xs"></i>
+                                                            </div>
+                                                        </template>
+                                                        <span class="text-sm font-medium text-gray-900" x-text="user.line_name"></span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="px-2 py-1 text-xs rounded-full"
+                                                          :class="user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                                                        <i class="fas fa-circle mr-1" :class="user.is_active ? 'fa-pulse' : ''"></i>
+                                                        <span x-text="user.is_active ? '契約中' : '解約済み'"></span>
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="user.acquired_agency_name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(user.subscription_started_at)"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                    <span x-text="`${user.referral_rate}%`"></span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold">
+                                                    <template x-if="user.is_active">
+                                                        <span class="text-purple-600" x-text="`¥${user.referral_commission.toLocaleString()}`"></span>
+                                                    </template>
+                                                    <template x-if="!user.is_active">
+                                                        <span class="text-gray-400">¥0</span>
+                                                    </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 設定タブ -->
+                <div x-show="activeTab === 'settings'" class="p-4 sm:p-6">
+                    <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">アカウント設定</h2>
+
+                    <div class="max-w-2xl space-y-4 sm:space-y-6">
+                        <!-- 代理店情報 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">代理店情報</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">代理店コード</label>
+                                    <input type="text" :value="agencyInfo.code" readonly
+                                           class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">会社名</label>
+                                    <input type="text" x-model="agencyInfo.company_name" autocomplete="organization"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">連絡先メールアドレス</label>
+                                    <input type="email" x-model="agencyInfo.contact_email" autocomplete="email"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">電話番号</label>
+                                    <input type="tel" x-model="agencyInfo.contact_phone" autocomplete="tel"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 振込先情報 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">振込先情報</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">銀行名</label>
+                                    <input type="text" x-model="paymentInfo.bank_name" autocomplete="off"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">支店名</label>
+                                    <input type="text" x-model="paymentInfo.branch_name" autocomplete="off"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">口座種別</label>
+                                    <select x-model="paymentInfo.account_type" autocomplete="off"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                        <option value="普通">普通</option>
+                                        <option value="当座">当座</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">口座番号</label>
+                                    <input type="text" x-model="paymentInfo.account_number" autocomplete="off"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">口座名義</label>
+                                    <input type="text" x-model="paymentInfo.account_holder" autocomplete="name"
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- セキュリティ設定 -->
+                        <div class="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+                            <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">セキュリティ設定</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">パスワード</p>
+                                        <p class="text-sm text-gray-500">定期的にパスワードを変更してセキュリティを強化しましょう</p>
+                                    </div>
+                                    <button @click="openChangePasswordModal()"
+                                            class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-300">
+                                        <i class="fas fa-key mr-2"></i> パスワード変更
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4">
+                            <button @click="saveSettings()"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                                <i class="fas fa-save mr-2"></i> 設定を保存
+                            </button>
+                            <button @click="cancelSettings()"
+                                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors">
+                                キャンセル
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- リンク詳細モーダル -->
+    <div x-show="linkDetailsModal"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         @click.self="closeLinkDetailsModal()">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景オーバーレイ -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="closeLinkDetailsModal()"></div>
+
+            <!-- モーダルコンテンツ -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                <!-- ヘッダー -->
+                <div class="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-chart-line text-white"></i>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-white">トラッキングリンク詳細</h3>
+                        </div>
+                        <button @click="closeLinkDetailsModal()" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- コンテンツ -->
+                <div class="px-6 py-6 max-h-[70vh] overflow-y-auto">
+                    <template x-if="selectedLink">
+                        <div class="space-y-6">
+                            <!-- 基本情報 -->
+                            <div class="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-6 border border-emerald-200">
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                                    <i class="fas fa-info-circle text-emerald-600 mr-2"></i>基本情報
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">キャンペーン名</label>
+                                        <p class="text-base font-semibold text-gray-900" x-text="selectedLink.name"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">作成日</label>
+                                        <p class="text-base text-gray-900" x-text="formatDateTime(selectedLink.created_at)"></p>
+                                    </div>
+                                    <div class="col-span-full">
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">トラッキングURL</label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="text" :value="getTrackingUrl(selectedLink.tracking_code)" readonly
+                                                   class="flex-1 px-3 py-2 bg-white border border-emerald-300 rounded-lg text-sm font-mono">
+                                            <button @click="copyToClipboard(getTrackingUrl(selectedLink.tracking_code), $event)"
+                                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                                                <i class="fas fa-copy mr-2"></i>コピー
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">トラッキングコード</label>
+                                        <code class="inline-block bg-gray-100 px-3 py-1 rounded text-sm" x-text="selectedLink.tracking_code"></code>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">ステータス</label>
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                                              :class="selectedLink.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                                            <i :class="selectedLink.is_active ? 'fas fa-check-circle' : 'fas fa-times-circle'" class="mr-1"></i>
+                                            <span x-text="selectedLink.is_active ? '有効' : '無効'"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- パフォーマンス指標 -->
+                            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                                    <i class="fas fa-chart-bar text-emerald-600 mr-2"></i>パフォーマンス
+                                </h4>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div class="text-center p-4 bg-emerald-50 rounded-lg">
+                                        <p class="text-sm text-gray-600 mb-1">クリック数</p>
+                                        <p class="text-2xl font-bold text-emerald-600" x-text="selectedLink.visit_count || 0"></p>
+                                    </div>
+                                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                                        <p class="text-sm text-gray-600 mb-1">コンバージョン</p>
+                                        <p class="text-2xl font-bold text-green-600" x-text="selectedLink.conversion_count || 0"></p>
+                                    </div>
+                                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                        <p class="text-sm text-gray-600 mb-1">CVR</p>
+                                        <p class="text-2xl font-bold text-blue-600" x-text="calculateCVR() + '%'"></p>
+                                    </div>
+                                    <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                                        <p class="text-sm text-gray-600 mb-1">予想報酬</p>
+                                        <p class="text-2xl font-bold text-yellow-600" x-text="'¥' + calculateCommission()"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- UTMパラメータ -->
+                            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                                    <i class="fas fa-tags text-emerald-600 mr-2"></i>UTMパラメータ
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">UTM Source</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedLink.utm_source || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">UTM Medium</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedLink.utm_medium || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">UTM Campaign</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedLink.utm_campaign || '-'"></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">UTM Term</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedLink.utm_term || '-'"></p>
+                                    </div>
+                                    <div class="col-span-full">
+                                        <label class="block text-sm font-medium text-gray-600 mb-1">UTM Content</label>
+                                        <p class="text-sm text-gray-900" x-text="selectedLink.utm_content || '-'"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 最近の訪問履歴 -->
+                            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                                    <i class="fas fa-history text-emerald-600 mr-2"></i>最近の訪問履歴
+                                </h4>
+                                <template x-if="linkVisits.length > 0">
+                                    <div class="table-scroll overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">日時</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">LINE名</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">デバイス</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ブラウザ</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">OS</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">リファラー</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                <template x-for="visit in linkVisits" :key="visit.id">
+                                                    <tr>
+                                                        <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-900" x-text="formatDateTime(visit.created_at)"></td>
+                                                        <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
+                                                            <span x-show="visit.line_display_name" class="flex items-center">
+                                                                <i class="fab fa-line text-green-500 mr-1"></i>
+                                                                <span x-text="visit.line_display_name"></span>
+                                                            </span>
+                                                            <span x-show="!visit.line_display_name" class="text-gray-400">-</span>
+                                                        </td>
+                                                        <td class="px-4 py-2 whitespace-nowrap text-xs">
+                                                            <span class="px-2 py-1 rounded-full text-xs"
+                                                                  :class="{
+                                                                      'bg-blue-100 text-blue-800': visit.device_type === 'mobile',
+                                                                      'bg-purple-100 text-purple-800': visit.device_type === 'tablet',
+                                                                      'bg-gray-100 text-gray-800': visit.device_type === 'desktop'
+                                                                  }"
+                                                                  x-text="visit.device_type || 'unknown'"></span>
+                                                        </td>
+                                                        <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-900" x-text="visit.browser || '-'"></td>
+                                                        <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-900" x-text="visit.os || '-'"></td>
+                                                        <td class="px-4 py-2 text-xs text-gray-600 truncate max-w-xs" x-text="visit.referrer || '-'"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </template>
+                                <template x-if="linkVisits.length === 0">
+                                    <div class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-inbox text-3xl mb-2"></i>
+                                        <p>まだ訪問履歴がありません</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- フッター (アクションボタン) -->
+                <div class="bg-gray-50 px-6 py-4 flex flex-wrap gap-3 justify-between items-center">
+                    <div class="flex gap-2">
+                        <button @click="toggleLinkStatus(selectedLink)"
+                                class="px-4 py-2 rounded-lg font-medium transition-colors"
+                                :class="selectedLink?.is_active ? 'bg-red-100 hover:bg-red-200 text-red-700' : 'bg-green-100 hover:bg-green-200 text-green-700'">
+                            <i :class="selectedLink?.is_active ? 'fas fa-ban' : 'fas fa-check-circle'" class="mr-2"></i>
+                            <span x-text="selectedLink?.is_active ? '無効化' : '有効化'"></span>
+                        </button>
+                        <button @click="deleteLinkWithConfirm(selectedLink)"
+                                class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-trash mr-2"></i>削除
+                        </button>
+                    </div>
+                    <button @click="closeLinkDetailsModal()"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors">
+                        閉じる
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- パスワード変更モーダル -->
+    <div x-show="changePasswordModal"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         @click.self="closeChangePasswordModal()">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景オーバーレイ -->
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="closeChangePasswordModal()"></div>
+
+            <!-- モーダルコンテンツ -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <!-- ヘッダー -->
+                <div class="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-key text-white"></i>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-white">パスワード変更</h3>
+                        </div>
+                        <button @click="closeChangePasswordModal()" class="text-white hover:text-gray-200 transition-colors">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- フォーム -->
+                <form @submit.prevent="changePassword()" class="px-6 py-4">
+                    <div class="space-y-4">
+                        <!-- 現在のパスワード -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                現在のパスワード *
+                            </label>
+                            <div class="relative">
+                                <input :type="showCurrentPassword ? 'text' : 'password'"
+                                       x-model="changePasswordForm.currentPassword"
+                                       required
+                                       class="w-full px-4 py-3 pr-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                       placeholder="現在のパスワードを入力">
+                                <button type="button"
+                                        @click="showCurrentPassword = !showCurrentPassword"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i :class="showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 新しいパスワード -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                新しいパスワード *
+                            </label>
+                            <div class="relative">
+                                <input :type="showNewPassword ? 'text' : 'password'"
+                                       x-model="changePasswordForm.newPassword"
+                                       required
+                                       minlength="8"
+                                       class="w-full px-4 py-3 pr-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                       placeholder="8文字以上で入力"
+                                       @input="checkPasswordStrength()">
+                                <button type="button"
+                                        @click="showNewPassword = !showNewPassword"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i :class="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                </button>
+                            </div>
+                            <!-- パスワード強度インジケーター -->
+                            <div x-show="changePasswordForm.newPassword.length > 0" class="mt-2">
+                                <div class="flex items-center space-x-2">
+                                    <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="h-full transition-all duration-300"
+                                             :class="{
+                                                 'w-1/4 bg-red-500': passwordStrength === 'weak',
+                                                 'w-2/4 bg-yellow-500': passwordStrength === 'medium',
+                                                 'w-3/4 bg-green-500': passwordStrength === 'strong',
+                                                 'w-full bg-emerald-600': passwordStrength === 'very-strong'
+                                             }"></div>
+                                    </div>
+                                    <span class="text-xs font-medium"
+                                          :class="{
+                                              'text-red-600': passwordStrength === 'weak',
+                                              'text-yellow-600': passwordStrength === 'medium',
+                                              'text-green-600': passwordStrength === 'strong',
+                                              'text-emerald-600': passwordStrength === 'very-strong'
+                                          }"
+                                          x-text="passwordStrengthLabel"></span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">英大文字、英小文字、数字、記号を組み合わせると強度が上がります</p>
+                            </div>
+                        </div>
+
+                        <!-- 新しいパスワード（確認） -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                新しいパスワード（確認）*
+                            </label>
+                            <div class="relative">
+                                <input :type="showConfirmPassword ? 'text' : 'password'"
+                                       x-model="changePasswordForm.confirmPassword"
+                                       required
+                                       class="w-full px-4 py-3 pr-10 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                       placeholder="もう一度入力">
+                                <button type="button"
+                                        @click="showConfirmPassword = !showConfirmPassword"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                </button>
+                            </div>
+                            <!-- パスワード一致チェック -->
+                            <div x-show="changePasswordForm.confirmPassword.length > 0" class="mt-2">
+                                <p class="text-xs"
+                                   :class="changePasswordForm.newPassword === changePasswordForm.confirmPassword ? 'text-green-600' : 'text-red-600'">
+                                    <i :class="changePasswordForm.newPassword === changePasswordForm.confirmPassword ? 'fas fa-check-circle' : 'fas fa-times-circle'"></i>
+                                    <span x-text="changePasswordForm.newPassword === changePasswordForm.confirmPassword ? 'パスワードが一致しています' : 'パスワードが一致しません'"></span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- エラーメッセージ -->
+                        <div x-show="changePasswordError"
+                             class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span x-text="changePasswordError"></span>
+                            </div>
+                        </div>
+
+                        <!-- 成功メッセージ -->
+                        <div x-show="changePasswordSuccess"
+                             class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                <span>パスワードが正常に変更されました</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ボタン -->
+                    <div class="mt-6 flex space-x-3">
+                        <button type="submit"
+                                :disabled="loading"
+                                class="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-emerald-700 hover:to-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span x-show="!loading">
+                                <i class="fas fa-check mr-2"></i> 変更する
+                            </span>
+                            <span x-show="loading" class="inline-flex items-center">
+                                <i class="fas fa-spinner fa-spin mr-2"></i> 変更中...
+                            </span>
+                        </button>
+                        <button type="button"
+                                @click="closeChangePasswordModal()"
+                                :disabled="loading"
+                                class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            キャンセル
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- グローバルエラーハンドラ -->
+    <script>
+        // Alpine.jsの初期化をログ
+        console.log('📦 Scripts loading...');
+
+        // グローバルエラーハンドラ
+        window.addEventListener('error', function(event) {
+            console.error('❌ Global error caught:',  {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error
+            });
+
+            // エラーを画面に表示（デバッグ用）
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #fee; color: #c00; padding: 20px; z-index: 99999; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto;';
+            errorDiv.innerHTML = `
+                <strong>❌ エラーが発生しました</strong><br>
+                <strong>メッセージ:</strong> ${event.message}<br>
+                <strong>ファイル:</strong> ${event.filename}<br>
+                <strong>行:</strong> ${event.lineno}:${event.colno}<br>
+                <strong>スタック:</strong> ${event.error ? event.error.stack : 'なし'}<br>
+                <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #c00; color: white; border: none; cursor: pointer;">閉じる</button>
+            `;
+            document.body.appendChild(errorDiv);
+        });
+
+        // Uncaught Promiseエラーハンドラ
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('❌ Unhandled promise rejection:', event.reason);
+
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #fea; color: #840; padding: 20px; z-index: 99999; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto;';
+            errorDiv.innerHTML = `
+                <strong>⚠️  Promise エラーが発生しました</strong><br>
+                <strong>理由:</strong> ${event.reason}<br>
+                <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #840; color: white; border: none; cursor: pointer;">閉じる</button>
+            `;
+            document.body.appendChild(errorDiv);
+        });
+
+        // Alpine.jsの初期化を監視
+        document.addEventListener('alpine:init', () => {
+            console.log('🎉 Alpine.js initialized successfully!');
+        });
+
+        document.addEventListener('alpine:initializing', () => {
+            console.log('🔄 Alpine.js initializing...');
+        });
+
+        document.addEventListener('alpine:initialized', () => {
+            console.log('✅ Alpine.js fully initialized!');
+        });
+
+        // DOMContentLoaded後にAlpine.jsが読み込まれているか確認
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 DOM Content Loaded');
+
+            // 3秒後にAlpine.jsがまだ初期化されていない場合は警告
+            setTimeout(() => {
+                if (!window.Alpine) {
+                    console.error('❌ Alpine.js is not loaded after 3 seconds!');
+                    alert('Alpine.jsの読み込みに失敗しました。ページを再読み込みしてください。');
+                } else {
+                    console.log('✅ Alpine.js is loaded:', window.Alpine);
+                }
+            }, 3000);
+        });
+    </script>
+
+    <!-- XSS Protection Utility -->
+    <script src="xss-protection.js"></script>
+    <script src="dashboard.js"></script>
+
+    <!-- Final diagnostic check -->
+    <script>
+        console.log('🏁 All inline scripts loaded');
+        console.log('📊 Current state:', {
+            agencyDashboard: typeof window.agencyDashboard,
+            Alpine: typeof window.Alpine,
+            XSSProtection: typeof window.XSSProtection
+        });
+
+        // Wait a bit and check if Alpine initialized
+        setTimeout(() => {
+            console.log('⏰ After 2 seconds:', {
+                Alpine: typeof window.Alpine,
+                AlpineReady: window.Alpine ? 'yes' : 'no'
+            });
+
+            if (!window.Alpine) {
+                console.error('❌❌❌ Alpine.js is NOT loaded after 2 seconds! ❌❌❌');
+                console.error('This is likely why the page is white.');
+                console.error('Possible causes:');
+                console.error('1. Network error loading Alpine.js from CDN');
+                console.error('2. SRI hash mismatch (we removed it, so not this)');
+                console.error('3. Content Security Policy blocking the script');
+                console.error('4. Browser extension blocking the CDN');
+
+                // Show error on page
+                document.body.innerHTML = `
+                    <div style="padding: 40px; max-width: 800px; margin: 0 auto; font-family: sans-serif;">
+                        <h1 style="color: #c00;">❌ Alpine.js Failed to Load</h1>
+                        <p><strong>The page cannot initialize because Alpine.js did not load from the CDN.</strong></p>
+                        <h2>Possible Solutions:</h2>
+                        <ol>
+                            <li>Check your internet connection</li>
+                            <li>Check if a browser extension is blocking CDN resources</li>
+                            <li>Check the browser console (F12) for network errors</li>
+                            <li>Try disabling ad blockers or privacy extensions</li>
+                            <li>Try a different browser</li>
+                        </ol>
+                        <h2>Technical Details:</h2>
+                        <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto;">
+Alpine.js URL: https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js
+Alpine.js loaded: No
+agencyDashboard function: ${typeof window.agencyDashboard}
+XSSProtection loaded: ${typeof window.XSSProtection}
+                        </pre>
+                        <button onclick="location.reload()" style="background: #10b981; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                            🔄 Reload Page
+                        </button>
+                    </div>
+                `;
+            } else {
+                console.log('✅ Alpine.js loaded successfully!');
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

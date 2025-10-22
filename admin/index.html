@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMate AI - 流入経路測定管理画面</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../images/logo.png">
+    <link rel="apple-touch-icon" href="../images/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div x-data="adminDashboard()" x-init="init()" class="min-h-screen">
+        <!-- Login Screen -->
+        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-600 to-green-700">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-emerald-100">
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-2">TaskMate AI</h1>
+                    <p class="text-gray-600">流入経路測定 管理画面</p>
+                </div>
+
+                <form @submit.prevent="login()">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">
+                            ユーザー名
+                        </label>
+                        <input
+                            type="text"
+                            x-model="loginForm.username"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            required
+                        />
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">
+                            パスワード
+                        </label>
+                        <input
+                            type="password"
+                            x-model="loginForm.password"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            required
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        :disabled="loading"
+                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 disabled:opacity-50"
+                    >
+                        <span x-show="!loading">ログイン</span>
+                        <span x-show="loading" class="flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i> ログイン中...
+                        </span>
+                    </button>
+                </form>
+
+                <div x-show="loginError" x-text="loginError" class="mt-4 text-red-600 text-sm text-center"></div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div x-show="isAuthenticated" class="min-h-screen">
+            <!-- Header -->
+            <header class="bg-white shadow-sm border-b border-emerald-100">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between items-center py-4">
+                        <div class="flex items-center">
+                            <h1 class="text-2xl font-bold text-gray-900">TaskMate AI 流入経路測定システム</h1>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-gray-600">管理者でログイン中</span>
+                            <button @click="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm">
+                                <i class="fas fa-sign-out-alt mr-1"></i> ログアウト
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-link text-emerald-500 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">トラッキングリンク数</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.totalLinks"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-eye text-green-500 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">総訪問数</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.totalVisits"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-users text-green-600 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">LINE友達数</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.lineUsers"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-chart-line text-green-700 text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">コンバージョン率</dt>
+                                        <dd class="text-lg font-medium text-gray-900" x-text="stats.conversionRate + '%'"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="bg-white shadow-lg rounded-xl border border-gray-100">
+                    <div class="border-b border-emerald-100">
+                        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                            <button
+                                @click="activeTab = 'create'"
+                                :class="activeTab === 'create' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+                            >
+                                <i class="fas fa-plus mr-2"></i>リンク作成
+                            </button>
+                            <button
+                                @click="activeTab = 'links'; loadTrackingLinks()"
+                                :class="activeTab === 'links' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+                            >
+                                <i class="fas fa-list mr-2"></i>リンク一覧
+                            </button>
+                            <button
+                                @click="activeTab = 'visits'; loadVisits()"
+                                :class="activeTab === 'visits' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+                            >
+                                <i class="fas fa-analytics mr-2"></i>訪問分析
+                            </button>
+                            <button
+                                @click="activeTab = 'users'; loadLineUsers()"
+                                :class="activeTab === 'users' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+                            >
+                                <i class="fas fa-user-friends mr-2"></i>LINEユーザー
+                            </button>
+                            <button
+                                @click="activeTab = 'agencies'; loadAgencies()"
+                                :class="activeTab === 'agencies' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
+                            >
+                                <i class="fas fa-building mr-2"></i>代理店管理
+                            </button>
+                        </nav>
+                    </div>
+
+                    <div class="p-6">
+                        <!-- Create Link Tab -->
+                        <div x-show="activeTab === 'create'">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">新規トラッキングリンク作成</h3>
+
+                            <form @submit.prevent="createTrackingLink()" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">キャンペーン名</label>
+                                    <input
+                                        type="text"
+                                        x-model="newLink.name"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        placeholder="例：夏のセールキャンペーン"
+                                        required
+                                    />
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">流入元（UTM Source）</label>
+                                        <input
+                                            type="text"
+                                            x-model="newLink.utm_source"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            placeholder="例：facebook, google, twitter"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">メディア（UTM Medium）</label>
+                                        <input
+                                            type="text"
+                                            x-model="newLink.utm_medium"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            placeholder="例：social, email, ads"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">キャンペーン（UTM Campaign）</label>
+                                        <input
+                                            type="text"
+                                            x-model="newLink.utm_campaign"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            placeholder="例：summer_sale, launch"
+                                        />
+                                    </div>
+                                </div>
+
+                                <!-- Info: LINE URL is automatically set from environment -->
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-info-circle text-blue-500 mt-1 mr-3"></i>
+                                        <div>
+                                            <p class="text-sm text-blue-800 font-medium">リダイレクト先について</p>
+                                            <p class="text-sm text-blue-700 mt-1">トラッキングリンクは自動的にTaskMate公式LINEアカウントへリダイレクトされます。</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    :disabled="loading"
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-md disabled:opacity-50 transition duration-200"
+                                >
+                                    <span x-show="!loading">リンクを作成</span>
+                                    <span x-show="loading">作成中...</span>
+                                </button>
+                            </form>
+
+                            <div x-show="createdLink" class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                <h4 class="font-medium text-emerald-800 mb-2">トラッキングリンクを作成しました！</h4>
+                                <div class="flex items-center space-x-2">
+                                    <input
+                                        type="text"
+                                        :value="createdLink"
+                                        readonly
+                                        class="flex-1 px-3 py-2 border border-emerald-300 rounded-md bg-white"
+                                    />
+                                    <button
+                                        @click="copyToClipboard(createdLink)"
+                                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm transition duration-200"
+                                    >
+                                        <i class="fas fa-copy"></i> コピー
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tracking Links Tab -->
+                        <div x-show="activeTab === 'links'">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">トラッキングリンク一覧</h3>
+
+                            <div class="overflow-x-auto rounded-lg">
+                                <table class="min-w-full divide-y divide-emerald-200">
+                                    <thead class="bg-emerald-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">キャンペーン</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">トラッキングコード</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UTMパラメータ</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">訪問数</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作成日</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">アクション</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="link in trackingLinks" :key="link.id">
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="link.name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <code class="bg-gray-100 px-2 py-1 rounded" x-text="link.tracking_code"></code>
+                                                </td>
+                                                <td class="px-6 py-4 text-sm text-gray-500">
+                                                    <div class="space-y-1">
+                                                        <div x-show="link.utm_source">Source: <span x-text="link.utm_source" class="font-medium"></span></div>
+                                                        <div x-show="link.utm_medium">Medium: <span x-text="link.utm_medium" class="font-medium"></span></div>
+                                                        <div x-show="link.utm_campaign">Campaign: <span x-text="link.utm_campaign" class="font-medium"></span></div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="link.visit_count || 0"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="new Date(link.created_at).toLocaleDateString()"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <button
+                                                        @click="copyToClipboard(`https://taskmateai.net/t/${link.tracking_code}`)"
+                                                        class="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-3 py-1 rounded-md text-xs transition duration-200"
+                                                    >
+                                                        <i class="fas fa-copy"></i> リンクコピー
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Visit Analytics Tab -->
+                        <div x-show="activeTab === 'visits'">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">訪問分析</h3>
+
+                            <div class="overflow-x-auto rounded-lg">
+                                <table class="min-w-full divide-y divide-emerald-200">
+                                    <thead class="bg-emerald-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">訪問日時</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">キャンペーン</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IPアドレス</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ユーザーエージェント</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">参照元</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LINEユーザー</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="visit in visits" :key="visit.id">
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="new Date(visit.visited_at).toLocaleString()"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="visit.tracking_link?.name || 'N/A'"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="visit.ip_address"></td>
+                                                <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" x-text="visit.user_agent"></td>
+                                                <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" x-text="visit.referrer || '直接アクセス'"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <span x-show="visit.line_user_id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                        <i class="fas fa-check mr-1"></i> 友達追加済
+                                                    </span>
+                                                    <span x-show="!visit.line_user_id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                        <i class="fas fa-clock mr-1"></i> 未追加
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- LINE Users Tab -->
+                        <div x-show="activeTab === 'users'">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">LINE Users</h3>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <template x-for="user in lineUsers" :key="user.line_user_id">
+                                    <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                                        <div class="flex items-center space-x-4">
+                                            <img
+                                                :src="user.picture_url || '/default-avatar.png'"
+                                                :alt="user.display_name"
+                                                class="w-12 h-12 rounded-full object-cover"
+                                            />
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-medium text-gray-900 truncate" x-text="user.display_name"></p>
+                                                <p class="text-sm text-gray-500 truncate" x-text="user.status_message || 'No status'"></p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-4 space-y-2">
+                                            <div class="text-xs text-gray-500">
+                                                <strong>Added:</strong> <span x-text="new Date(user.created_at).toLocaleDateString()"></span>
+                                            </div>
+                                            <div class="text-xs text-gray-500" x-show="user.tracking_source">
+                                                <strong>Source:</strong> <span x-text="user.tracking_source"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Agencies Tab -->
+                        <div x-show="activeTab === 'agencies'">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">代理店管理</h3>
+
+                            <!-- Filter buttons -->
+                            <div class="mb-4 flex space-x-2">
+                                <button
+                                    @click="agencyFilter = 'all'; filterAgencies()"
+                                    :class="agencyFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    class="px-4 py-2 rounded-md text-sm font-medium transition"
+                                >
+                                    全て (<span x-text="agencyStats.total"></span>)
+                                </button>
+                                <button
+                                    @click="agencyFilter = 'pending'; filterAgencies()"
+                                    :class="agencyFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    class="px-4 py-2 rounded-md text-sm font-medium transition"
+                                >
+                                    承認待ち (<span x-text="agencyStats.pending"></span>)
+                                </button>
+                                <button
+                                    @click="agencyFilter = 'active'; filterAgencies()"
+                                    :class="agencyFilter === 'active' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    class="px-4 py-2 rounded-md text-sm font-medium transition"
+                                >
+                                    承認済み (<span x-text="agencyStats.active"></span>)
+                                </button>
+                                <button
+                                    @click="agencyFilter = 'rejected'; filterAgencies()"
+                                    :class="agencyFilter === 'rejected' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    class="px-4 py-2 rounded-md text-sm font-medium transition"
+                                >
+                                    非承認 (<span x-text="agencyStats.rejected"></span>)
+                                </button>
+                            </div>
+
+                            <!-- Agencies table -->
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                代理店コード
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                会社名
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                代理店名
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                担当者
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                メールアドレス
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                登録日
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                ステータス
+                                            </th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                アクション
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="agency in filteredAgencies" :key="agency.id">
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="agency.code"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="agency.company_name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="agency.name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="agency.owner_name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="agency.contact_email"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(agency.created_at)"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span
+                                                        :class="{
+                                                            'bg-yellow-100 text-yellow-800': agency.status === 'pending',
+                                                            'bg-green-100 text-green-800': agency.status === 'active',
+                                                            'bg-red-100 text-red-800': agency.status === 'rejected',
+                                                            'bg-gray-100 text-gray-800': agency.status === 'suspended'
+                                                        }"
+                                                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                                    >
+                                                        <span x-text="getStatusLabel(agency.status)"></span>
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div class="flex space-x-2">
+                                                        <template x-if="agency.status === 'pending'">
+                                                            <div class="flex space-x-2">
+                                                                <button
+                                                                    @click="approveAgency(agency.id)"
+                                                                    class="text-green-600 hover:text-green-900"
+                                                                    title="承認"
+                                                                >
+                                                                    <i class="fas fa-check-circle"></i>
+                                                                </button>
+                                                                <button
+                                                                    @click="rejectAgency(agency.id)"
+                                                                    class="text-red-600 hover:text-red-900"
+                                                                    title="非承認"
+                                                                >
+                                                                    <i class="fas fa-times-circle"></i>
+                                                                </button>
+                                                            </div>
+                                                        </template>
+                                                        <template x-if="agency.status === 'active'">
+                                                            <button
+                                                                @click="suspendAgency(agency.id)"
+                                                                class="text-yellow-600 hover:text-yellow-900"
+                                                                title="一時停止"
+                                                            >
+                                                                <i class="fas fa-pause-circle"></i>
+                                                            </button>
+                                                        </template>
+                                                        <template x-if="agency.status === 'suspended'">
+                                                            <button
+                                                                @click="activateAgency(agency.id)"
+                                                                class="text-green-600 hover:text-green-900"
+                                                                title="再開"
+                                                            >
+                                                                <i class="fas fa-play-circle"></i>
+                                                            </button>
+                                                        </template>
+                                                        <button
+                                                            @click="viewAgencyDetails(agency)"
+                                                            class="text-blue-600 hover:text-blue-900"
+                                                            title="詳細表示"
+                                                        >
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div x-show="filteredAgencies.length === 0" class="text-center py-8">
+                                <i class="fas fa-building text-gray-300 text-4xl mb-4"></i>
+                                <p class="text-gray-500">該当する代理店がありません</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
