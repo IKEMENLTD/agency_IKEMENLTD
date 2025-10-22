@@ -1,8 +1,27 @@
-# TaskMate AI 流入経路測定システム
+# 代理店管理システム（マルチサービス対応）
 
-営業代理店向けの流入経路測定・管理システムです。LINE友だち追加リンクのトラッキング、コンバージョン測定、手数料管理機能を提供します。
+**マルチサービス型代理店プラットフォーム** - 複数のLINE公式アカウントサービスを1つのダッシュボードで管理
 
-## 機能概要
+## 🎯 概要
+
+このシステムは、複数のサービス（LINE公式アカウント）の代理店管理を統合的に行うプラットフォームです。
+
+### 対応サービス
+
+1. **TaskMate AI** - AI搭載タスク管理アシスタント
+2. **LiteWEB+** - 軽量・高速Webサービスプラットフォーム
+3. **IT補助金サポート** - IT補助金申請LINEサポート
+4. **ものづくり補助金サポート** - ものづくり補助金申請LINEサポート
+
+## ✨ 主な機能
+
+### 代理店向け機能
+- 📊 **統合ダッシュボード** - 全サービスの成果を1つの画面で管理
+- 🔗 **トラッキングリンク生成** - サービスごとに計測可能なリンクを作成
+- 📈 **リアルタイム統計** - クリック数、コンバージョン、報酬を即座に確認
+- 💰 **報酬管理** - サービス別・統合の報酬レポート
+- 👥 **リファラルシステム** - 2段階の代理店紹介プログラム
+- 🎯 **サービスフィルタリング** - 特定サービスのデータのみ表示
 
 ### 管理者機能
 - 代理店の承認・非承認・一時停止管理
@@ -10,55 +29,66 @@
 - LINE友だち情報の確認
 - システム全体の統計情報
 
-### 代理店機能
-- トラッキングリンクの作成・管理
-- リアルタイム訪問分析
-- コンバージョン追跡
-- 手数料レポート
-- 振込先情報管理
+### システム管理機能
+- 🔐 **JWT認証** - セキュアな認証システム
+- 📱 **LINE Webhook統合** - 友達追加の自動トラッキング
+- 💳 **Stripe決済連携** - サブスク課金の自動管理
+- 🔄 **マルチサービス対応** - サービスの追加がDB登録のみで完結
+- 🛡️ **セキュリティ対策** - CSRF保護、レート制限、XSS対策
 
-## セットアップ手順
+## 🚀 セットアップ手順
 
-### 1. 環境変数の設定
+### 1. Supabaseデータベース初期化
 
-```bash
-cp .env.example .env
+Supabase SQL Editorで以下を実行：
+
+```sql
+-- 1. マルチサービス対応スキーマ作成
+\i database/001_create_services_table.sql
+
+-- 2. 初期サービスデータ登録
+\i database/002_insert_initial_services.sql
 ```
 
-以下の環境変数を設定してください：
+**重要**: `002_insert_initial_services.sql` 内のLINE認証情報を実際の値に置き換えてください。
 
-- `SUPABASE_URL`: SupabaseプロジェクトのURL
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabaseのサービスロールキー
-- `JWT_SECRET`: JWT認証用のシークレットキー（32文字以上）
-- `LINE_CHANNEL_ACCESS_TOKEN`: LINE Messaging APIのアクセストークン
-- `LINE_CHANNEL_SECRET`: LINE Messaging APIのチャネルシークレット
+### 2. 環境変数の設定
 
-### 2. Supabaseデータベースのセットアップ
-
-1. Supabaseプロジェクトを作成
-2. SQLエディタで以下のファイルを実行：
-   - `database/schema.sql` - 基本スキーマ
-   - `database/create_test_accounts.sql` - テストアカウント（開発時のみ）
-
-### 3. Netlifyへのデプロイ
-
-```bash
-# Netlify CLIのインストール
-npm install -g netlify-cli
-
-# 依存関係のインストール
-npm install
-
-# Netlifyにデプロイ
-netlify deploy --prod
+#### Supabase
+```
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ```
 
-### 4. Netlify環境変数の設定
+#### JWT認証
+```
+JWT_SECRET=your-secret-key-here
+```
 
-Netlify管理画面で以下の環境変数を設定：
+#### CORS設定
+```
+ALLOWED_ORIGINS=https://agency.ikemenl.ltd
+```
 
-1. Site settings → Environment variables
-2. `.env`ファイルと同じ環境変数を追加
+### 3. Netlifyデプロイ
+
+1. Netlifyで新規サイト作成
+2. GitHub連携: `IKEMENLTD/agency_IKEMENLTD`
+3. ビルド設定:
+   ```
+   Base directory: (空欄)
+   Build command: echo 'Build complete'
+   Publish directory: .
+   Functions directory: netlify/functions
+   ```
+4. 環境変数設定（上記参照）
+5. デプロイ
+
+### 4. カスタムドメイン設定
+
+- **推奨ドメイン**: `agency.ikemenl.ltd`
+- DNS設定: `CNAME` → Netlifyサイト
+- SSL証明書: 自動発行
 
 ## URL構成
 
