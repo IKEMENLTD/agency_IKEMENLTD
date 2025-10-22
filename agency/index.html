@@ -745,6 +745,43 @@
                 </div>
             </div>
 
+            <!-- Multi-service support: サービスフィルタ -->
+            <div class="bg-white rounded-xl shadow-lg border border-emerald-100 p-4 sm:p-6 mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-filter text-emerald-600 mr-2"></i>
+                        サービスフィルタ
+                    </h3>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+                    <label class="text-sm font-medium text-gray-700 mb-2 sm:mb-0">表示するサービス</label>
+                    <select x-model="selectedServiceId" @change="changeServiceFilter()"
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="all">すべてのサービス</option>
+                        <template x-for="service in services" :key="service.id">
+                            <option :value="service.id" x-text="service.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <!-- サービス別報酬率表示 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4" x-show="services.length > 0">
+                    <template x-for="service in services" :key="service.id">
+                        <div class="bg-gray-50 rounded-lg p-4 border-2"
+                             :style="`border-color: ${getServiceColor(service.name)}`">
+                            <div class="flex items-center mb-2">
+                                <div class="w-3 h-3 rounded-full mr-2"
+                                     :style="`background-color: ${getServiceColor(service.name)}`"></div>
+                                <p class="text-sm font-medium text-gray-700" x-text="service.name"></p>
+                            </div>
+                            <p class="text-2xl font-bold" :style="`color: ${getServiceColor(service.name)}`">
+                                <span x-text="service.commission_rate"></span>%
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">報酬率</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <!-- タブメニュー -->
             <div class="bg-white rounded-xl shadow-lg border border-emerald-100 mb-8">
                 <div class="border-b border-emerald-100 overflow-x-auto">
@@ -787,6 +824,25 @@
                     <h2 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-4 sm:mb-6">リンク作成</h2>
 
                     <form @submit.prevent="createLink()" class="space-y-3 sm:space-y-4 max-w-2xl">
+                        <!-- Multi-service support: サービス選択 -->
+                        <div>
+                            <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">サービス *</label>
+                            <select x-model="newLink.service_id" required
+                                    class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                                <option value="">サービスを選択してください</option>
+                                <template x-for="service in services" :key="service.id">
+                                    <option :value="service.id" x-text="service.name"></option>
+                                </template>
+                            </select>
+                            <!-- 報酬率表示 -->
+                            <div class="bg-emerald-50 p-3 rounded-lg mt-2" x-show="newLink.service_id">
+                                <p class="text-sm text-emerald-800">
+                                    このサービスの報酬率:
+                                    <span class="font-bold" x-text="`${getServiceCommissionRate(newLink.service_id)}%`"></span>
+                                </p>
+                            </div>
+                        </div>
+
                         <div>
                             <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">キャンペーン名 *</label>
                             <input type="text" x-model="newLink.name" autocomplete="off" required
@@ -864,6 +920,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-emerald-50">
                                 <tr>
+                                    <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">サービス</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">キャンペーン</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">コード</th>
                                     <th class="px-3 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">クリック</th>
@@ -875,6 +932,17 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <template x-for="link in trackingLinks" :key="link.id">
                                     <tr class="hover:bg-gray-50">
+                                        <!-- Multi-service support: サービスバッジ -->
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <template x-if="link.service_id">
+                                                <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                                      :style="`background-color: ${getServiceColor(getServiceName(link.service_id))}20; color: ${getServiceColor(getServiceName(link.service_id))}`"
+                                                      x-text="getServiceName(link.service_id)"></span>
+                                            </template>
+                                            <template x-if="!link.service_id">
+                                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">-</span>
+                                            </template>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="link.name"></td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <code x-text="link.tracking_code" class="bg-gray-100 px-2 py-1 rounded"></code>

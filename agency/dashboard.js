@@ -68,6 +68,7 @@ function agencyDashboard() {
         // Create link form
         newLink: {
             name: '',
+            service_id: '',
             utm_source: '',
             utm_medium: '',
             utm_campaign: '',
@@ -102,6 +103,16 @@ function agencyDashboard() {
             totalUsers: 0,
             activeSubscriptions: 0,
             totalReferralCommission: 0
+        },
+
+        // Multi-service support
+        services: [],
+        selectedServiceId: 'all',
+        serviceColors: {
+            'TaskMate AI': '#10b981',
+            'LiteWEB+': '#3b82f6',
+            'IT補助金サポート': '#f59e0b',
+            'ものづくり補助金サポート': '#8b5cf6'
         },
 
         // Settings
@@ -180,6 +191,10 @@ function agencyDashboard() {
                     this.isAuthenticated = true;
 
                     try {
+                        // Load services first
+                        await this.loadServices();
+                        console.log('✅ Services loaded successfully');
+
                         await this.loadDashboardData();
                         console.log('✅ Dashboard data loaded successfully');
 
@@ -659,6 +674,43 @@ function agencyDashboard() {
                 window.history.replaceState({}, document.title, window.location.pathname);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async loadServices() {
+            console.log('🎯 loadServices() started');
+            try {
+                const response = await fetch(`/.netlify/functions/agency-services`, {
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken') || ''}`,
+                        'X-Agency-Id': localStorage.getItem('agencyId') || ''
+                    }
+                });
+
+                console.log('🎯 Services response status:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🎯 Services data received:', data);
+                    this.services = data.services || [];
+
+                    // Restore selected service from URL params
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const serviceParam = urlParams.get('service');
+                    if (serviceParam) {
+                        this.selectedServiceId = serviceParam;
+                    }
+
+                    console.log('✅ loadServices() completed');
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ Services response not OK:', response.status, errorText);
+                    throw new Error(`Services API returned ${response.status}: ${errorText}`);
+                }
+            } catch (error) {
+                console.error('❌ Error loading services:', error);
+                throw error;
             }
         },
 
@@ -1591,6 +1643,43 @@ function agencyDashboard() {
         // 4段階代理店制度 - リファラルコミッション率を取得
         getReferralRate() {
             return 2.00; // 固定2%
+        },
+
+        // Multi-service support: サービスフィルタ変更時
+        async changeServiceFilter() {
+            console.log('🎯 Service filter changed to:', this.selectedServiceId);
+
+            // Update URL params
+            const url = new URL(window.location);
+            url.searchParams.set('service', this.selectedServiceId);
+            window.history.pushState({}, '', url);
+
+            // Reload dashboard data with new filter
+            await this.loadDashboardData();
+        },
+
+        // Multi-service support: サービス名を取得
+        getServiceName(serviceId) {
+            const service = this.services.find(s => s.id === serviceId);
+            return service ? service.name : 'Unknown Service';
+        },
+
+        // Multi-service support: サービスの色を取得
+        getServiceColor(serviceName) {
+            return this.serviceColors[serviceName] || '#6b7280';
+        },
+
+        // Multi-service support: サービスの報酬率を取得
+        getServiceCommissionRate(serviceId) {
+            const service = this.services.find(s => s.id === serviceId);
+            return service ? service.commission_rate : 0;
+        },
+
+        // Multi-service support: サービス別報酬を計算
+        getServiceCommission(serviceId) {
+            return this.commissions
+                .filter(c => c.service_id === serviceId)
+                .reduce((sum, c) => sum + (c.amount || 0), 0);
         }
     };
 }
