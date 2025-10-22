@@ -438,6 +438,18 @@ async function createAgencyLineConversion(session, lineUserId, userId) {
             return; // Already recorded
         }
 
+        // Get tracking link to extract service_id (multi-service support)
+        let serviceId = null;
+        if (session.tracking_link_id) {
+            const { data: trackingLink } = await supabase
+                .from('agency_tracking_links')
+                .select('service_id')
+                .eq('id', session.tracking_link_id)
+                .single();
+
+            serviceId = trackingLink?.service_id || null;
+        }
+
         // Get agency information for commission calculation
         const { data: agency } = await supabase
             .from('agencies')
@@ -450,6 +462,7 @@ async function createAgencyLineConversion(session, lineUserId, userId) {
             tracking_link_id: session.tracking_link_id,
             visit_id: session.visit_id,
             session_id: session.id,
+            service_id: serviceId,  // Multi-service support
             user_id: userId,
             line_user_id: lineUserId,
             conversion_type: 'line_friend',

@@ -78,6 +78,7 @@ exports.handler = async (event) => {
 
         const {
             name,
+            service_id,
             utm_source,
             utm_medium,
             utm_campaign,
@@ -85,22 +86,63 @@ exports.handler = async (event) => {
             utm_content
         } = JSON.parse(event.body);
 
-        // Get LINE Official URL from environment variable
-        const line_friend_url = process.env.LINE_OFFICIAL_URL;
+        // Multi-service support: Get LINE Official URL based on service_id
+        let line_friend_url;
+        let destination_url;
 
-        // 環境変数チェック
-        if (!line_friend_url || line_friend_url.includes('@your-line-id')) {
-            logger.error('❌ LINE_OFFICIAL_URLが設定されていません');
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({
-                    error: 'LINE友達追加機能の設定が完了していません。管理者にお問い合わせください。'
-                })
-            };
+        if (service_id) {
+            // マルチサービス: servicesテーブルからLINE URLを取得
+            const { data: service, error: serviceError } = await supabase
+                .from('services')
+                .select('line_official_url, app_redirect_url, status')
+                .eq('id', service_id)
+                .single();
+
+            if (serviceError || !service) {
+                logger.error('❌ Invalid service_id:', service_id);
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: JSON.stringify({
+                        error: '指定されたサービスが見つかりません'
+                    })
+                };
+            }
+
+            if (service.status !== 'active') {
+                logger.error('❌ Service is not active:', service_id);
+                return {
+                    statusCode: 400,
+                    headers,
+                    body: JSON.stringify({
+                        error: '指定されたサービスは現在利用できません'
+                    })
+                };
+            }
+
+            line_friend_url = service.line_official_url;
+            destination_url = service.app_redirect_url || service.line_official_url;
+
+            logger.log('✅ Using service-specific LINE URL:', line_friend_url);
+        } else {
+            // 後方互換性: 環境変数から取得（service_id未指定の場合）
+            line_friend_url = process.env.LINE_OFFICIAL_URL;
+            destination_url = line_friend_url;
+
+            // 環境変数チェック
+            if (!line_friend_url || line_friend_url.includes('@your-line-id')) {
+                logger.error('❌ LINE_OFFICIAL_URLが設定されていません');
+                return {
+                    statusCode: 500,
+                    headers,
+                    body: JSON.stringify({
+                        error: 'LINE友達追加機能の設定が完了していません。管理者にお問い合わせください。'
+                    })
+                };
+            }
+
+            logger.log('⚠️ Using default LINE URL from environment variable (backward compatibility)');
         }
-
-        const destination_url = line_friend_url; // Same as LINE URL for now
 
         // Validate required fields
         if (!name) {
@@ -149,6 +191,7 @@ exports.handler = async (event) => {
                 created_by: decoded.userId,
                 tracking_code: trackingCode,
                 name,
+                service_id: service_id || null,  // Multi-service support
                 utm_source,
                 utm_medium,
                 utm_campaign,

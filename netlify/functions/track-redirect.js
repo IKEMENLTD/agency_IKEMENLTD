@@ -125,6 +125,7 @@ exports.handler = async (event) => {
             .insert({
                 tracking_link_id: link.id,
                 agency_id: link.agency_id,
+                service_id: link.service_id || null,  // Multi-service support
                 visitor_ip: visitorInfo.ip,
                 user_agent: visitorInfo.userAgent,
                 referrer: visitorInfo.referrer,

@@ -41,25 +41,48 @@ exports.handler = async (event) => {
 
         const agencyId = auth.agencyId;
 
+        // Multi-service support: Get service_id from query params
+        const queryParams = event.queryStringParameters || {};
+        const serviceId = queryParams.service_id;
+        const filterByService = serviceId && serviceId !== 'all';
+
         // Get total links count
-        const { count: totalLinks } = await supabase
+        let linksQuery = supabase
             .from('agency_tracking_links')
             .select('*', { count: 'exact', head: true })
             .eq('agency_id', agencyId);
 
+        if (filterByService) {
+            linksQuery = linksQuery.eq('service_id', serviceId);
+        }
+
+        const { count: totalLinks } = await linksQuery;
+
         // Get total clicks (visits)
-        const { data: clickData } = await supabase
+        let clickQuery = supabase
             .from('agency_tracking_links')
             .select('visit_count')
             .eq('agency_id', agencyId);
 
+        if (filterByService) {
+            clickQuery = clickQuery.eq('service_id', serviceId);
+        }
+
+        const { data: clickData } = await clickQuery;
+
         const totalClicks = clickData?.reduce((sum, link) => sum + (link.visit_count || 0), 0) || 0;
 
         // Get total conversions
-        const { data: conversionData } = await supabase
+        let conversionQuery = supabase
             .from('agency_tracking_links')
             .select('conversion_count')
             .eq('agency_id', agencyId);
+
+        if (filterByService) {
+            conversionQuery = conversionQuery.eq('service_id', serviceId);
+        }
+
+        const { data: conversionData } = await conversionQuery;
 
         const totalConversions = conversionData?.reduce((sum, link) => sum + (link.conversion_count || 0), 0) || 0;
 
@@ -73,32 +96,48 @@ exports.handler = async (event) => {
         const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-        const { data: currentMonthCommission } = await supabase
+        let currentMonthQuery = supabase
             .from('agency_commissions')
             .select('commission_amount')
             .eq('agency_id', agencyId)
             .gte('period_start', startOfMonth.toISOString())
-            .lte('period_end', endOfMonth.toISOString())
-            .single();
+            .lte('period_end', endOfMonth.toISOString());
+
+        if (filterByService) {
+            currentMonthQuery = currentMonthQuery.eq('service_id', serviceId);
+        }
+
+        const { data: currentMonthCommission } = await currentMonthQuery.single();
 
         // Get last month commission
         const startOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
         const endOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
 
-        const { data: lastMonthCommission } = await supabase
+        let lastMonthQuery = supabase
             .from('agency_commissions')
             .select('commission_amount')
             .eq('agency_id', agencyId)
             .gte('period_start', startOfLastMonth.toISOString())
-            .lte('period_end', endOfLastMonth.toISOString())
-            .single();
+            .lte('period_end', endOfLastMonth.toISOString());
+
+        if (filterByService) {
+            lastMonthQuery = lastMonthQuery.eq('service_id', serviceId);
+        }
+
+        const { data: lastMonthCommission } = await lastMonthQuery.single();
 
         // Get total commission
-        const { data: totalCommissionData } = await supabase
+        let totalCommissionQuery = supabase
             .from('agency_commissions')
             .select('commission_amount')
             .eq('agency_id', agencyId)
             .eq('status', 'paid');
+
+        if (filterByService) {
+            totalCommissionQuery = totalCommissionQuery.eq('service_id', serviceId);
+        }
+
+        const { data: totalCommissionData } = await totalCommissionQuery;
 
         const totalCommission = totalCommissionData?.reduce(
             (sum, commission) => sum + (commission.commission_amount || 0), 0
