@@ -6,8 +6,8 @@
     <title>株式会社イケメン - 流入経路測定管理画面</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="../images/logo.png">
-    <link rel="apple-touch-icon" href="../images/logo.png">
+    <link rel="icon" type="image/png" href="../images/株式会社イケメンロゴ.png">
+    <link rel="apple-touch-icon" href="../images/株式会社イケメンロゴ.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,8 +15,8 @@
 <body class="bg-gray-50 min-h-screen">
     <div x-data="adminDashboard()" x-init="init()" class="min-h-screen">
         <!-- Login Screen -->
-        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-600 to-green-700">
-            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-emerald-100">
+        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-400 to-blue-500">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border border-cyan-100">
                 <div class="text-center mb-8">
                     <h1 class="text-3xl font-bold text-gray-800 mb-2">株式会社イケメン</h1>
                     <p class="text-gray-600">流入経路測定 管理画面</p>
@@ -30,7 +30,7 @@
                         <input
                             type="text"
                             x-model="loginForm.username"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                             required
                         />
                     </div>
@@ -42,7 +42,7 @@
                         <input
                             type="password"
                             x-model="loginForm.password"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                             required
                         />
                     </div>
@@ -50,7 +50,7 @@
                     <button
                         type="submit"
                         :disabled="loading"
-                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 disabled:opacity-50"
+                        class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition duration-200 disabled:opacity-50"
                     >
                         <span x-show="!loading">ログイン</span>
                         <span x-show="loading" class="flex items-center justify-center">
@@ -66,7 +66,7 @@
         <!-- Dashboard -->
         <div x-show="isAuthenticated" class="min-h-screen">
             <!-- Header -->
-            <header class="bg-white shadow-sm border-b border-emerald-100">
+            <header class="bg-white shadow-sm border-b border-cyan-100">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between items-center py-4">
                         <div class="flex items-center">
@@ -90,7 +90,7 @@
                         <div class="p-5">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0">
-                                    <i class="fas fa-link text-emerald-500 text-2xl"></i>
+                                    <i class="fas fa-link text-cyan-500 text-2xl"></i>
                                 </div>
                                 <div class="ml-5 w-0 flex-1">
                                     <dl>
@@ -106,7 +106,7 @@
                         <div class="p-5">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0">
-                                    <i class="fas fa-eye text-green-500 text-2xl"></i>
+                                    <i class="fas fa-eye text-cyan-500 text-2xl"></i>
                                 </div>
                                 <div class="ml-5 w-0 flex-1">
                                     <dl>
@@ -122,7 +122,7 @@
                         <div class="p-5">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0">
-                                    <i class="fas fa-users text-green-600 text-2xl"></i>
+                                    <i class="fas fa-users text-cyan-600 text-2xl"></i>
                                 </div>
                                 <div class="ml-5 w-0 flex-1">
                                     <dl>
@@ -138,7 +138,7 @@
                         <div class="p-5">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0">
-                                    <i class="fas fa-chart-line text-green-700 text-2xl"></i>
+                                    <i class="fas fa-chart-line text-cyan-700 text-2xl"></i>
                                 </div>
                                 <div class="ml-5 w-0 flex-1">
                                     <dl>
@@ -153,39 +153,39 @@
 
                 <!-- Tabs -->
                 <div class="bg-white shadow-lg rounded-xl border border-gray-100">
-                    <div class="border-b border-emerald-100">
+                    <div class="border-b border-cyan-100">
                         <nav class="-mb-px flex space-x-8" aria-label="Tabs">
                             <button
                                 @click="activeTab = 'create'"
-                                :class="activeTab === 'create' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                :class="activeTab === 'create' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                             >
                                 <i class="fas fa-plus mr-2"></i>リンク作成
                             </button>
                             <button
                                 @click="activeTab = 'links'; loadTrackingLinks()"
-                                :class="activeTab === 'links' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                :class="activeTab === 'links' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                             >
                                 <i class="fas fa-list mr-2"></i>リンク一覧
                             </button>
                             <button
                                 @click="activeTab = 'visits'; loadVisits()"
-                                :class="activeTab === 'visits' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                :class="activeTab === 'visits' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                             >
                                 <i class="fas fa-analytics mr-2"></i>訪問分析
                             </button>
                             <button
                                 @click="activeTab = 'users'; loadLineUsers()"
-                                :class="activeTab === 'users' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                :class="activeTab === 'users' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                             >
                                 <i class="fas fa-user-friends mr-2"></i>LINEユーザー
                             </button>
                             <button
                                 @click="activeTab = 'agencies'; loadAgencies()"
-                                :class="activeTab === 'agencies' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                                :class="activeTab === 'agencies' ? 'border-cyan-500 text-cyan-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
                                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                             >
                                 <i class="fas fa-building mr-2"></i>代理店管理
@@ -204,7 +204,7 @@
                                     <input
                                         type="text"
                                         x-model="newLink.name"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                         placeholder="例：夏のセールキャンペーン"
                                         required
                                     />
@@ -216,7 +216,7 @@
                                         <input
                                             type="text"
                                             x-model="newLink.utm_source"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                             placeholder="例：facebook, google, twitter"
                                         />
                                     </div>
@@ -226,7 +226,7 @@
                                         <input
                                             type="text"
                                             x-model="newLink.utm_medium"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                             placeholder="例：social, email, ads"
                                         />
                                     </div>
@@ -236,7 +236,7 @@
                                         <input
                                             type="text"
                                             x-model="newLink.utm_campaign"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                             placeholder="例：summer_sale, launch"
                                         />
                                     </div>
@@ -256,25 +256,25 @@
                                 <button
                                     type="submit"
                                     :disabled="loading"
-                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-md disabled:opacity-50 transition duration-200"
+                                    class="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 rounded-md disabled:opacity-50 transition duration-200"
                                 >
                                     <span x-show="!loading">リンクを作成</span>
                                     <span x-show="loading">作成中...</span>
                                 </button>
                             </form>
 
-                            <div x-show="createdLink" class="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                <h4 class="font-medium text-emerald-800 mb-2">トラッキングリンクを作成しました！</h4>
+                            <div x-show="createdLink" class="mt-6 p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+                                <h4 class="font-medium text-cyan-800 mb-2">トラッキングリンクを作成しました！</h4>
                                 <div class="flex items-center space-x-2">
                                     <input
                                         type="text"
                                         :value="createdLink"
                                         readonly
-                                        class="flex-1 px-3 py-2 border border-emerald-300 rounded-md bg-white"
+                                        class="flex-1 px-3 py-2 border border-cyan-300 rounded-md bg-white"
                                     />
                                     <button
                                         @click="copyToClipboard(createdLink)"
-                                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm transition duration-200"
+                                        class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-md text-sm transition duration-200"
                                     >
                                         <i class="fas fa-copy"></i> コピー
                                     </button>
@@ -287,8 +287,8 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-4">トラッキングリンク一覧</h3>
 
                             <div class="overflow-x-auto rounded-lg">
-                                <table class="min-w-full divide-y divide-emerald-200">
-                                    <thead class="bg-emerald-50">
+                                <table class="min-w-full divide-y divide-cyan-200">
+                                    <thead class="bg-cyan-50">
                                         <tr>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">キャンペーン</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">トラッキングコード</th>
@@ -317,7 +317,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     <button
                                                         @click="copyToClipboard(`https://taskmateai.net/t/${link.tracking_code}`)"
-                                                        class="bg-emerald-100 hover:bg-emerald-200 text-emerald-600 px-3 py-1 rounded-md text-xs transition duration-200"
+                                                        class="bg-cyan-100 hover:bg-cyan-200 text-cyan-600 px-3 py-1 rounded-md text-xs transition duration-200"
                                                     >
                                                         <i class="fas fa-copy"></i> リンクコピー
                                                     </button>
@@ -334,8 +334,8 @@
                             <h3 class="text-lg font-medium text-gray-900 mb-4">訪問分析</h3>
 
                             <div class="overflow-x-auto rounded-lg">
-                                <table class="min-w-full divide-y divide-emerald-200">
-                                    <thead class="bg-emerald-50">
+                                <table class="min-w-full divide-y divide-cyan-200">
+                                    <thead class="bg-cyan-50">
                                         <tr>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">訪問日時</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">キャンペーン</th>
@@ -354,7 +354,7 @@
                                                 <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" x-text="visit.user_agent"></td>
                                                 <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" x-text="visit.referrer || '直接アクセス'"></td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    <span x-show="visit.line_user_id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                    <span x-show="visit.line_user_id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
                                                         <i class="fas fa-check mr-1"></i> 友達追加済
                                                     </span>
                                                     <span x-show="!visit.line_user_id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -407,7 +407,7 @@
                             <div class="mb-4 flex space-x-2">
                                 <button
                                     @click="agencyFilter = 'all'; filterAgencies()"
-                                    :class="agencyFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    :class="agencyFilter === 'all' ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
                                     class="px-4 py-2 rounded-md text-sm font-medium transition"
                                 >
                                     全て (<span x-text="agencyStats.total"></span>)
@@ -421,7 +421,7 @@
                                 </button>
                                 <button
                                     @click="agencyFilter = 'active'; filterAgencies()"
-                                    :class="agencyFilter === 'active' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
+                                    :class="agencyFilter === 'active' ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'"
                                     class="px-4 py-2 rounded-md text-sm font-medium transition"
                                 >
                                     承認済み (<span x-text="agencyStats.active"></span>)
@@ -479,7 +479,7 @@
                                                     <span
                                                         :class="{
                                                             'bg-yellow-100 text-yellow-800': agency.status === 'pending',
-                                                            'bg-green-100 text-green-800': agency.status === 'active',
+                                                            'bg-cyan-100 text-cyan-800': agency.status === 'active',
                                                             'bg-red-100 text-red-800': agency.status === 'rejected',
                                                             'bg-gray-100 text-gray-800': agency.status === 'suspended'
                                                         }"
@@ -494,7 +494,7 @@
                                                             <div class="flex space-x-2">
                                                                 <button
                                                                     @click="approveAgency(agency.id)"
-                                                                    class="text-green-600 hover:text-green-900"
+                                                                    class="text-cyan-600 hover:text-cyan-900"
                                                                     title="承認"
                                                                 >
                                                                     <i class="fas fa-check-circle"></i>
@@ -520,7 +520,7 @@
                                                         <template x-if="agency.status === 'suspended'">
                                                             <button
                                                                 @click="activateAgency(agency.id)"
-                                                                class="text-green-600 hover:text-green-900"
+                                                                class="text-cyan-600 hover:text-cyan-900"
                                                                 title="再開"
                                                             >
                                                                 <i class="fas fa-play-circle"></i>
