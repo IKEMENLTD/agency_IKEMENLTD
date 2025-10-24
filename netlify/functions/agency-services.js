@@ -77,7 +77,19 @@ exports.handler = async (event) => {
       };
     }
 
-    // アクティブなサービス一覧を取得（TaskMate AI と LiteWEB+ のみ）
+    // アクティブなサービス一覧を取得
+    // まず全サービスを取得してログ出力（デバッグ用）
+    const { data: allServices } = await supabase
+      .from('services')
+      .select('id, name, status')
+      .order('name');
+
+    console.log('📋 All services in database:', allServices?.length || 0);
+    if (allServices && allServices.length > 0) {
+      console.log('All service names:', allServices.map(s => `${s.name} (${s.status})`));
+    }
+
+    // TaskMate AI と LiteWEB+ のみフィルタリング
     const { data: services, error: servicesError } = await supabase
       .from('services')
       .select('id, name, description, domain, default_commission_rate, default_referral_rate, subscription_price, status')
@@ -90,8 +102,16 @@ exports.handler = async (event) => {
       return {
         statusCode: 500,
         headers,
-        body: JSON.stringify({ error: 'Failed to fetch services' })
+        body: JSON.stringify({ error: 'Failed to fetch services', details: servicesError.message })
       };
+    }
+
+    // デバッグ用ログ
+    console.log('✅ Services fetched from DB:', services?.length || 0, 'services');
+    if (services && services.length > 0) {
+      console.log('Service names:', services.map(s => s.name));
+    } else {
+      console.warn('⚠️ No services found! Check database or filter conditions.');
     }
 
     // 代理店×サービスのカスタム設定を取得

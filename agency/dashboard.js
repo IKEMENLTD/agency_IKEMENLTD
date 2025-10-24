@@ -694,6 +694,16 @@ function agencyDashboard() {
                     const data = await response.json();
                     console.log('🎯 Services data received:', data);
                     this.services = data.services || [];
+                    console.log('📊 Number of services loaded:', this.services.length);
+
+                    if (this.services.length === 0) {
+                        console.warn('⚠️ No services available! This could mean:');
+                        console.warn('1. Database has no services data');
+                        console.warn('2. All services are inactive');
+                        console.warn('3. Filter conditions are too strict');
+                    } else {
+                        console.log('✅ Available services:', this.services.map(s => s.name));
+                    }
 
                     // Restore selected service from URL params
                     const urlParams = new URLSearchParams(window.location.search);
