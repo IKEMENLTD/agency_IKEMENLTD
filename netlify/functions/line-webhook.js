@@ -63,6 +63,14 @@ exports.handler = async (event, context) => {
             await processLineEvent(event);
         }
 
+        // 外部Webhook URL（Lステップ等）への転送（全イベント）
+        // 既に転送されたリクエストは再転送しない（無限ループ防止）
+        if (!isForwarded) {
+            forwardToExternal(body, signature).catch(err => {
+                console.error('Background forward to external webhook failed:', err);
+            });
+        }
+
         // メッセージイベントのみRenderに転送（メッセージ処理用）
         // follow/unfollowイベントはNetlify側で完結するため転送不要
         // 既に転送されたリクエストは再転送しない（無限ループ防止）
@@ -811,6 +819,47 @@ async function forwardToRender(body, signature) {
             console.error('⏱️ Render forward timeout (30s) - Render may be sleeping');
         } else {
             console.error('❌ Render forward error:', error.message);
+        }
+    }
+}
+
+// Forward LINE webhook to External Service (Lステップ等)
+async function forwardToExternal(body, signature) {
+    const externalWebhookUrl = process.env.EXTERNAL_WEBHOOK_URL;
+
+    if (!externalWebhookUrl) {
+        console.log('⚠️ EXTERNAL_WEBHOOK_URL not configured, skipping forward to external service');
+        return;
+    }
+
+    try {
+        console.log('📤 Forwarding to External Webhook:', externalWebhookUrl);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch(externalWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Line-Signature': signature
+            },
+            body: body,
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.warn('⚠️ External webhook forward failed with status:', response.status);
+        } else {
+            console.log('✅ External webhook forward successful');
+        }
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('⏱️ External webhook forward timeout (10s)');
+        } else {
+            console.error('❌ External webhook forward error:', error.message);
         }
     }
 }
