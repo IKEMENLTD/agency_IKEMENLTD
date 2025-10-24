@@ -6,12 +6,26 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Agency dashboard is now at root (/)
-# SPA routing - serve index.html for all routes
+# Root redirect to agency portal
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/"
+  to = "/agency/"
+  status = 301
+
+# Agency portal SPA routing
+[[redirects]]
+  from = "/agency/*"
+  to = "/agency/index.html"
   status = 200
+
+# Admin portal SPA routing
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+# Tracking page handles its own routing via functions
+# No redirect needed for /t/* routes
 
 # Security headers for agency dashboard
 [[headers]]
