@@ -522,11 +522,15 @@ async function notifyAgencyOfConversion(agencyId, conversionType, conversionData
 }
 
 // Send welcome message to new user
+// ⚠️ Disabled for multi-service system (each service handles its own messages)
 async function sendWelcomeMessage(userId, displayName) {
+    console.log('⚠️ sendWelcomeMessage called but disabled (multi-service system)');
+    return;
+
     try {
         const message = {
             type: 'text',
-            text: `こんにちは${displayName}さん！\n\nTaskMate AIの公式LINEアカウントにご登録いただき、ありがとうございます。\n\nTaskMate AIは、あなたの日常業務を効率化するAIアシスタントです。何かご質問がございましたら、お気軽にメッセージをお送りください。\n\nよろしくお願いいたします！`
+            text: `こんにちは${displayName}さん！\n\nご登録いただき、ありがとうございます。\n\n何かご質問がございましたら、お気軽にメッセージをお送りください。\n\nよろしくお願いいたします！`
         };
 
         await sendLineMessage(userId, message);
@@ -546,13 +550,13 @@ async function handleTextMessage(userId, text) {
         let response = '';
 
         if (text.includes('こんにちは') || text.includes('こんばんは')) {
-            response = 'こんにちは！TaskMate AIです。どのようなことでお手伝いできますか？';
+            response = 'こんにちは！どのようなことでお手伝いできますか？';
         } else if (text.includes('ありがとう')) {
             response = 'どういたしまして！他にもご質問がございましたら、お気軽にお聞かせください。';
         } else if (text.includes('機能') || text.includes('できること')) {
-            response = 'TaskMate AIは以下のようなことができます：\n\n• タスク管理\n• スケジュール調整\n• メモの管理\n• リマインダー設定\n\n詳しくは https://taskmateai.net をご覧ください！';
+            response = 'サービスの詳細については、代理店にお問い合わせください。';
         } else {
-            response = 'メッセージをありがとうございます！現在、より良いサービスを提供するための準備を進めております。\n\n詳しい機能については、近日中にお知らせいたします。今後ともよろしくお願いいたします。';
+            response = 'メッセージをありがとうございます！\n\n詳しくは代理店にお問い合わせください。';
         }
 
         if (response) {
@@ -636,7 +640,7 @@ async function sendAgencyWelcomeMessage(userId, agency) {
                         },
                         {
                             type: 'text',
-                            text: 'TaskMate AI パートナー登録',
+                            text: '株式会社イケメン パートナー登録',
                             size: 'sm',
                             color: '#6b7280',
                             margin: 'md'
@@ -740,7 +744,7 @@ async function sendAgencyWelcomeMessage(userId, agency) {
                             action: {
                                 type: 'uri',
                                 label: 'ダッシュボードへ',
-                                uri: 'https://taskmateai.net/agency/'
+                                uri: 'https://agency.ikemen.ltd/'
                             },
                             color: '#10b981'
                         },

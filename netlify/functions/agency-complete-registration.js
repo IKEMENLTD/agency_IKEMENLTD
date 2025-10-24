@@ -65,7 +65,7 @@ async function getLineProfile(accessToken) {
 exports.handler = async (event) => {
     // Strict CORS configuration
     const ALLOWED_ORIGINS = [
-        'https://taskmateai.net',
+        'https://agency.ikemen.ltd',
         'http://localhost:3000',
         'http://localhost:8888'  // Netlify Dev
     ];
@@ -169,7 +169,7 @@ exports.handler = async (event) => {
 
         // Validate redirect_uri (防止Open Redirect攻撃)
         const ALLOWED_CALLBACK_URLS = [
-            'https://taskmateai.net/agency/',
+            'https://agency.ikemen.ltd/',
             'http://localhost:3000/agency/',
             'http://localhost:8888/agency/',
             process.env.LINE_LOGIN_CALLBACK_URL

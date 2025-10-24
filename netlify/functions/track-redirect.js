@@ -41,7 +41,7 @@ exports.handler = async (event) => {
                     <h1>❌ Tracking Code Not Found</h1>
                     <p>The tracking link appears to be incomplete.</p>
                     <p><strong>Path:</strong> ${event.path}</p>
-                    <p><a href="https://lin.ee/4NLfSqH">Continue to LINE</a></p>
+                    <p>トラッキングリンクが不完全です。代理店にお問い合わせください。</p>
                 </body>
                 </html>
             `
@@ -89,7 +89,7 @@ exports.handler = async (event) => {
                         <h1>🔍 Tracking Link Not Found</h1>
                         <p>The tracking link you're trying to access does not exist or has been deactivated.</p>
                         <p><strong>Tracking Code:</strong> ${trackingCode}</p>
-                        <p><a href="https://lin.ee/4NLfSqH" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background: #06c755; color: white; text-decoration: none; border-radius: 5px;">Continue to LINE</a></p>
+                        <p>トラッキングリンクが存在しないか、無効化されています。代理店にお問い合わせください。</p>
                     </body>
                     </html>
                 `
@@ -173,7 +173,27 @@ exports.handler = async (event) => {
         }
 
         // Build redirect URL with tracking parameters
-        const destinationUrl = link.destination_url || link.line_friend_url || 'https://lin.ee/4NLfSqH';
+        const destinationUrl = link.destination_url || link.line_friend_url;
+
+        if (!destinationUrl) {
+            logger.error('❌ No destination URL found for tracking link');
+            return {
+                statusCode: 500,
+                headers: { 'Content-Type': 'text/html' },
+                body: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head><title>Configuration Error</title></head>
+                    <body style="font-family: Arial; text-align: center; padding: 50px;">
+                        <h1>⚙️ Configuration Error</h1>
+                        <p>このトラッキングリンクの転送先URLが設定されていません。</p>
+                        <p>代理店管理者にお問い合わせください。</p>
+                    </body>
+                    </html>
+                `
+            };
+        }
+
         logger.log('🎯 Destination URL:', destinationUrl);
 
         const url = new URL(destinationUrl);
@@ -207,7 +227,7 @@ exports.handler = async (event) => {
             headers: {
                 'Location': finalRedirectUrl,
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Set-Cookie': `taskmate_tracking=${Buffer.from(cookieValue).toString('base64')}; Path=/; Max-Age=2592000; SameSite=Lax`
+                'Set-Cookie': `ikemen_agency_tracking=${Buffer.from(cookieValue).toString('base64')}; Path=/; Max-Age=2592000; SameSite=Lax`
             },
             body: ''
         };
@@ -223,18 +243,27 @@ exports.handler = async (event) => {
             headers: event.headers
         });
 
-        // Fallback redirect to LINE friend URL with error info
-        const fallbackUrl = 'https://lin.ee/4NLfSqH';
-        logger.log('⚠️  Performing fallback redirect to:', fallbackUrl);
+        // Return error page instead of fallback redirect (multi-service system)
+        logger.log('⚠️  Returning error page due to critical error');
 
         return {
-            statusCode: 302,
+            statusCode: 500,
             headers: {
-                'Location': fallbackUrl,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Error-Occurred': 'true'
+                'Content-Type': 'text/html',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
             },
-            body: ''
+            body: `
+                <!DOCTYPE html>
+                <html>
+                <head><title>System Error</title></head>
+                <body style="font-family: Arial; text-align: center; padding: 50px;">
+                    <h1>⚠️ System Error</h1>
+                    <p>トラッキングシステムでエラーが発生しました。</p>
+                    <p>代理店管理者にお問い合わせください。</p>
+                    <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">Error ID: ${Date.now()}</p>
+                </body>
+                </html>
+            `
         };
     }
 };

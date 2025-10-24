@@ -13,7 +13,7 @@ const supabase = createClient(
 exports.handler = async (event) => {
     // Strict CORS configuration
     const ALLOWED_ORIGINS = [
-        'https://taskmateai.net',
+        'https://agency.ikemen.ltd',
         'http://localhost:3000',
         'http://localhost:8888'  // Netlify Dev
     ];
@@ -145,7 +145,7 @@ exports.handler = async (event) => {
         const state = generateState();
 
         // Get callback URL from environment
-        const callbackUrl = process.env.LINE_LOGIN_CALLBACK_URL || 'https://taskmateai.net/agency/';
+        const callbackUrl = process.env.LINE_LOGIN_CALLBACK_URL || 'https://agency.ikemen.ltd/';
 
         logger.log('- コールバックURL:', callbackUrl);
         logger.log('- State:', state);
