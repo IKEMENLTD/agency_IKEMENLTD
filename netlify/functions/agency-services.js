@@ -89,12 +89,11 @@ exports.handler = async (event) => {
       console.log('All service names:', allServices.map(s => `${s.name} (${s.status})`));
     }
 
-    // TaskMate AI と LiteWEB+ のみフィルタリング
+    // すべてのアクティブなサービスを取得
     const { data: services, error: servicesError } = await supabase
       .from('services')
       .select('id, name, description, domain, default_commission_rate, default_referral_rate, subscription_price, status')
       .eq('status', 'active')
-      .in('name', ['TaskMate AI', 'LiteWEB+'])
       .order('name');
 
     if (servicesError) {
