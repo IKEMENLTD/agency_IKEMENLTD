@@ -67,7 +67,7 @@ JWT_SECRET=your-secret-key-here
 
 #### CORS設定
 ```
-ALLOWED_ORIGINS=https://agency.ikemenl.ltd
+ALLOWED_ORIGINS=https://agency.ikemen.ltd
 ```
 
 ### 3. Netlifyデプロイ
@@ -86,7 +86,7 @@ ALLOWED_ORIGINS=https://agency.ikemenl.ltd
 
 ### 4. カスタムドメイン設定
 
-- **推奨ドメイン**: `agency.ikemenl.ltd`
+- **推奨ドメイン**: `agency.ikemen.ltd`
 - DNS設定: `CNAME` → Netlifyサイト
 - SSL証明書: 自動発行
 

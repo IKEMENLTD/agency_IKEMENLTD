@@ -785,7 +785,7 @@ function agencyDashboard() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.createdLink = `https://taskmateai.net/t/${data.tracking_code}`;
+                    this.createdLink = `https://agency.ikemen.ltd/t/${data.tracking_code}`;
 
                     // Reset form
                     this.newLink = {
@@ -1058,7 +1058,7 @@ function agencyDashboard() {
         },
 
         getTrackingUrl(code) {
-            return `https://taskmateai.net/t/${code}`;
+            return `https://agency.ikemen.ltd/t/${code}`;
         },
 
         formatDate(dateString) {

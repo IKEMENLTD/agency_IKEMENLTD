@@ -145,7 +145,7 @@ function adminDashboard() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.createdLink = `https://taskmateai.net/t/${data.tracking_code}`;
+                    this.createdLink = `https://agency.ikemen.ltd/t/${data.tracking_code}`;
                     this.newLink = {
                         name: '',
                         utm_source: '',

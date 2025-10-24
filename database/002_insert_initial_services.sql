@@ -69,9 +69,9 @@ INSERT INTO services (
   gen_random_uuid(),
   'LiteWEB+',
   '軽量・高速なWebサービスプラットフォーム',
-  'liteweb.ikemenl.ltd',               -- ⚠️ 実際のドメインに置き換え
-  'https://liteweb.ikemenl.ltd/t',     -- ⚠️ 実際のドメインに置き換え
-  'https://liteweb.ikemenl.ltd/app',   -- ⚠️ 実際のドメインに置き換え
+  'liteweb.ikemen.ltd',               -- ⚠️ 実際のドメインに置き換え
+  'https://liteweb.ikemen.ltd/t',     -- ⚠️ 実際のドメインに置き換え
+  'https://liteweb.ikemen.ltd/app',   -- ⚠️ 実際のドメインに置き換え
   'LITEWEB_LINE_CHANNEL_ID',           -- ⚠️ LINE Developers で取得後に置き換え
   'LITEWEB_LINE_CHANNEL_SECRET',       -- ⚠️ LINE Developers で取得後に置き換え
   'LITEWEB_LINE_ACCESS_TOKEN',         -- ⚠️ LINE Developers で取得後に置き換え
@@ -105,9 +105,9 @@ INSERT INTO services (
   gen_random_uuid(),
   'IT補助金サポート',
   'IT補助金申請をLINEでサポート',
-  'it-subsidy.ikemenl.ltd',            -- ⚠️ 実際のドメインに置き換え
-  'https://it-subsidy.ikemenl.ltd/t',  -- ⚠️ 実際のドメインに置き換え
-  'https://it-subsidy.ikemenl.ltd/app',-- ⚠️ 実際のドメインに置き換え
+  'it-subsidy.ikemen.ltd',            -- ⚠️ 実際のドメインに置き換え
+  'https://it-subsidy.ikemen.ltd/t',  -- ⚠️ 実際のドメインに置き換え
+  'https://it-subsidy.ikemen.ltd/app',-- ⚠️ 実際のドメインに置き換え
   'IT_SUBSIDY_LINE_CHANNEL_ID',        -- ⚠️ LINE Developers で取得後に置き換え
   'IT_SUBSIDY_LINE_CHANNEL_SECRET',    -- ⚠️ LINE Developers で取得後に置き換え
   'IT_SUBSIDY_LINE_ACCESS_TOKEN',      -- ⚠️ LINE Developers で取得後に置き換え
@@ -141,9 +141,9 @@ INSERT INTO services (
   gen_random_uuid(),
   'ものづくり補助金サポート',
   'ものづくり補助金申請をLINEでサポート',
-  'monozukuri.ikemenl.ltd',            -- ⚠️ 実際のドメインに置き換え
-  'https://monozukuri.ikemenl.ltd/t',  -- ⚠️ 実際のドメインに置き換え
-  'https://monozukuri.ikemenl.ltd/app',-- ⚠️ 実際のドメインに置き換え
+  'monozukuri.ikemen.ltd',            -- ⚠️ 実際のドメインに置き換え
+  'https://monozukuri.ikemen.ltd/t',  -- ⚠️ 実際のドメインに置き換え
+  'https://monozukuri.ikemen.ltd/app',-- ⚠️ 実際のドメインに置き換え
   'MONOZUKURI_LINE_CHANNEL_ID',        -- ⚠️ LINE Developers で取得後に置き換え
   'MONOZUKURI_LINE_CHANNEL_SECRET',    -- ⚠️ LINE Developers で取得後に置き換え
   'MONOZUKURI_LINE_ACCESS_TOKEN',      -- ⚠️ LINE Developers で取得後に置き換え

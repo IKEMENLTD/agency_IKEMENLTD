@@ -51,12 +51,18 @@ exports.handler = async (event) => {
     try {
         logger.log('🔎 Searching for tracking link in database...');
 
-        // Find tracking link
+        // Find tracking link with service information
         const { data: link, error: linkError } = await supabase
             .from('agency_tracking_links')
             .select(`
                 *,
-                agencies (*)
+                agencies (*),
+                services (
+                    id,
+                    name,
+                    line_official_url,
+                    domain
+                )
             `)
             .eq('tracking_code', trackingCode)
             .eq('is_active', true)
@@ -100,6 +106,8 @@ exports.handler = async (event) => {
             id: link.id,
             name: link.name,
             agency_id: link.agency_id,
+            service_id: link.service_id,
+            service_name: link.services?.name,
             visit_count: link.visit_count
         });
 
@@ -172,11 +180,12 @@ exports.handler = async (event) => {
             logger.log('✅ Visit count updated to:', link.visit_count + 1);
         }
 
-        // Build redirect URL with tracking parameters
-        const destinationUrl = link.destination_url || link.line_friend_url;
+        // Get destination URL from service configuration
+        const destinationUrl = link.services?.line_official_url || link.destination_url;
 
         if (!destinationUrl) {
             logger.error('❌ No destination URL found for tracking link');
+            logger.error('Service info:', link.services);
             return {
                 statusCode: 500,
                 headers: { 'Content-Type': 'text/html' },
@@ -187,6 +196,7 @@ exports.handler = async (event) => {
                     <body style="font-family: Arial; text-align: center; padding: 50px;">
                         <h1>⚙️ Configuration Error</h1>
                         <p>このトラッキングリンクの転送先URLが設定されていません。</p>
+                        <p>サービス: ${link.services?.name || '不明'}</p>
                         <p>代理店管理者にお問い合わせください。</p>
                     </body>
                     </html>
@@ -195,6 +205,7 @@ exports.handler = async (event) => {
         }
 
         logger.log('🎯 Destination URL:', destinationUrl);
+        logger.log('📦 Service:', link.services?.name);
 
         const url = new URL(destinationUrl);
 

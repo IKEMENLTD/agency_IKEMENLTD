@@ -34,27 +34,12 @@ exports.handler = async (event, context) => {
     try {
         const {
             name,
+            service_id,
+            agency_id,
             utm_source,
             utm_medium,
             utm_campaign
         } = JSON.parse(event.body);
-
-        // Get LINE Official URL from environment variable
-        const line_friend_url = process.env.LINE_OFFICIAL_URL;
-
-        // 環境変数チェック
-        if (!line_friend_url || line_friend_url.includes('@your-line-id')) {
-            return {
-                statusCode: 500,
-                headers: {
-                    'Access-Control-Allow-Origin': '*',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    error: 'LINE_OFFICIAL_URL環境変数が設定されていません'
-                })
-            };
-        }
 
         // Validate required fields
         if (!name) {
@@ -70,12 +55,59 @@ exports.handler = async (event, context) => {
             };
         }
 
+        if (!service_id) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    error: 'サービスを選択してください'
+                })
+            };
+        }
+
+        if (!agency_id) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    error: 'Missing required field: agency_id'
+                })
+            };
+        }
+
+        // Verify service exists
+        const { data: service, error: serviceError } = await supabase
+            .from('services')
+            .select('id, name, line_official_url')
+            .eq('id', service_id)
+            .eq('status', 'active')
+            .single();
+
+        if (serviceError || !service) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    error: '無効なサービスが選択されています'
+                })
+            };
+        }
+
         // Generate unique tracking code
         let tracking_code = generateTrackingCode();
 
         // Check if tracking code already exists (very unlikely but better to be safe)
         const { data: existing } = await supabase
-            .from('tracking_links')
+            .from('agency_tracking_links')
             .select('id')
             .eq('tracking_code', tracking_code)
             .single();
@@ -85,19 +117,21 @@ exports.handler = async (event, context) => {
             tracking_code = generateTrackingCode() + Date.now().toString().slice(-3);
         }
 
-        // Insert new tracking link
+        // Insert new tracking link with service_id and agency_id
         const { data, error } = await supabase
-            .from('tracking_links')
+            .from('agency_tracking_links')
             .insert([
                 {
+                    agency_id: agency_id,
+                    service_id: service_id,
                     name: name.trim(),
                     tracking_code,
                     utm_source: utm_source?.trim() || null,
                     utm_medium: utm_medium?.trim() || null,
                     utm_campaign: utm_campaign?.trim() || null,
-                    line_friend_url: line_friend_url.trim(),
-                    created_at: new Date().toISOString(),
-                    is_active: true
+                    destination_url: service.line_official_url,
+                    is_active: true,
+                    visit_count: 0
                 }
             ])
             .select()
@@ -127,7 +161,8 @@ exports.handler = async (event, context) => {
             body: JSON.stringify({
                 success: true,
                 tracking_code: data.tracking_code,
-                tracking_url: `https://taskmateai.net/t/${data.tracking_code}`,
+                tracking_url: `https://agency.ikemen.ltd/t/${data.tracking_code}`,
+                service_name: service.name,
                 id: data.id,
                 name: data.name
             })
