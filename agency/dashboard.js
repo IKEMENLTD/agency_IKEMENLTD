@@ -144,6 +144,9 @@ function agencyDashboard() {
         selectedLink: null,
         linkVisits: [],
         loadingVisits: false,
+        visitsOffset: 0,
+        visitsHasMore: false,
+        visitsTotalCount: 0,
 
         // 4段階代理店制度 - 階層情報
         referralInfo: {
@@ -1123,13 +1126,16 @@ function agencyDashboard() {
             this.selectedLink = link;
             this.linkDetailsModal = true;
             this.loadingVisits = true;
+            this.visitsOffset = 0; // リセット
+            this.visitsHasMore = false;
+            this.visitsTotalCount = 0;
 
             console.log('📊 After change - linkDetailsModal:', this.linkDetailsModal);
             console.log('📊 selectedLink:', this.selectedLink);
 
             try {
                 console.log('📊 Calling loadLinkVisits with id:', link.id);
-                await this.loadLinkVisits(link.id);
+                await this.loadLinkVisits(link.id, false);
                 console.log('📊 loadLinkVisits completed successfully');
             } catch (error) {
                 console.error('❌ Error loading link visits:', error);
@@ -1146,13 +1152,16 @@ function agencyDashboard() {
             this.selectedLink = null;
             this.linkVisits = [];
             this.loadingVisits = false;
+            this.visitsOffset = 0;
+            this.visitsHasMore = false;
+            this.visitsTotalCount = 0;
         },
 
-        async loadLinkVisits(linkId) {
-            console.log('📈 Loading visits for link ID:', linkId);
+        async loadLinkVisits(linkId, append = false) {
+            console.log('📈 Loading visits for link ID:', linkId, 'offset:', this.visitsOffset);
 
             try {
-                const response = await fetch(`/.netlify/functions/agency-link-visits?link_id=${linkId}`, {
+                const response = await fetch(`/.netlify/functions/agency-link-visits?link_id=${linkId}&offset=${this.visitsOffset}&limit=50`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
                         'X-Agency-Id': localStorage.getItem('agencyId')
@@ -1161,15 +1170,47 @@ function agencyDashboard() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    this.linkVisits = data.visits || [];
-                    console.log('✅ Loaded', this.linkVisits.length, 'visits');
+
+                    if (append) {
+                        // 追加読み込み（もっと見る）
+                        this.linkVisits = [...this.linkVisits, ...(data.visits || [])];
+                    } else {
+                        // 初回読み込み
+                        this.linkVisits = data.visits || [];
+                    }
+
+                    this.visitsHasMore = data.hasMore || false;
+                    this.visitsTotalCount = data.total || 0;
+
+                    console.log('✅ Loaded', data.visits?.length || 0, 'visits. Total:', this.visitsTotalCount, 'HasMore:', this.visitsHasMore);
                 } else {
                     console.error('Failed to load visits:', await response.text());
-                    this.linkVisits = [];
+                    if (!append) {
+                        this.linkVisits = [];
+                    }
                 }
             } catch (error) {
                 console.error('Error loading link visits:', error);
-                this.linkVisits = [];
+                if (!append) {
+                    this.linkVisits = [];
+                }
+            }
+        },
+
+        async loadMoreVisits() {
+            if (!this.selectedLink || this.loadingVisits || !this.visitsHasMore) {
+                return;
+            }
+
+            this.loadingVisits = true;
+            this.visitsOffset += 50; // 次の50件
+
+            try {
+                await this.loadLinkVisits(this.selectedLink.id, true);
+            } catch (error) {
+                console.error('Error loading more visits:', error);
+            } finally {
+                this.loadingVisits = false;
             }
         },
 

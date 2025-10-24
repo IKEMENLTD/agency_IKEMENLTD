@@ -1659,8 +1659,8 @@
                                 <div class="flex justify-between items-center mb-4">
                                     <h4 class="text-lg font-semibold text-gray-900">
                                         <i class="fas fa-history text-cyan-600 mr-2"></i>最近の訪問履歴
-                                        <span class="text-sm font-normal text-gray-500 ml-2" x-show="linkVisits.length > 0">
-                                            (<span x-text="linkVisits.length"></span>件 / 最大50件)
+                                        <span class="text-sm font-normal text-gray-500 ml-2" x-show="visitsTotalCount > 0">
+                                            (<span x-text="linkVisits.length"></span>件 / 全<span x-text="visitsTotalCount"></span>件)
                                         </span>
                                     </h4>
                                     <button @click="exportVisitsToCSV()"
@@ -1712,6 +1712,22 @@
                                         </table>
                                     </div>
                                 </template>
+
+                                <!-- もっと見るボタン -->
+                                <div x-show="visitsHasMore" class="mt-4 text-center">
+                                    <button @click="loadMoreVisits()"
+                                            :disabled="loadingVisits"
+                                            class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto">
+                                        <template x-if="!loadingVisits">
+                                            <i class="fas fa-chevron-down"></i>
+                                        </template>
+                                        <template x-if="loadingVisits">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </template>
+                                        <span x-text="loadingVisits ? '読み込み中...' : 'さらに50件読み込む'"></span>
+                                    </button>
+                                </div>
+
                                 <template x-if="linkVisits.length === 0">
                                     <div class="text-center py-8 text-gray-500">
                                         <i class="fas fa-inbox text-3xl mb-2"></i>

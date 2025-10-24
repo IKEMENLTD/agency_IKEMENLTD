@@ -83,13 +83,17 @@ exports.handler = async (event) => {
             };
         }
 
-        // Get visits for this link (most recent 50)
+        // Get pagination parameters
+        const limit = parseInt(event.queryStringParameters?.limit) || 50;
+        const offset = parseInt(event.queryStringParameters?.offset) || 0;
+
+        // Get visits for this link with pagination
         const { data: visits, error: visitsError } = await supabase
             .from('agency_tracking_visits')
             .select('*')
             .eq('tracking_link_id', linkId)
             .order('created_at', { ascending: false })
-            .limit(50);
+            .range(offset, offset + limit - 1);
 
         if (visitsError) {
             console.error('Error fetching visits:', visitsError);
@@ -129,12 +133,21 @@ exports.handler = async (event) => {
             };
         });
 
+        // Get total count for pagination info
+        const { count: totalCount } = await supabase
+            .from('agency_tracking_visits')
+            .select('*', { count: 'exact', head: true })
+            .eq('tracking_link_id', linkId);
+
         return {
             statusCode: 200,
             headers,
             body: JSON.stringify({
                 visits: formattedVisits,
-                total: formattedVisits.length
+                total: totalCount || 0,
+                hasMore: (offset + limit) < (totalCount || 0),
+                offset: offset,
+                limit: limit
             })
         };
 
