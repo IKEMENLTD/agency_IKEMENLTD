@@ -1690,6 +1690,56 @@ function agencyDashboard() {
             return this.commissions
                 .filter(c => c.service_id === serviceId)
                 .reduce((sum, c) => sum + (c.amount || 0), 0);
+        },
+
+        // CSV出力機能: 訪問履歴をCSV形式でダウンロード
+        exportVisitsToCSV() {
+            if (!this.linkVisits || this.linkVisits.length === 0) {
+                alert('出力する訪問履歴がありません');
+                return;
+            }
+
+            // CSVヘッダー
+            const headers = ['日時', 'LINE表示名', 'デバイス', 'ブラウザ', 'OS', 'リファラー', 'IPアドレス', 'セッションID'];
+
+            // CSVデータ行
+            const rows = this.linkVisits.map(visit => {
+                return [
+                    this.formatDateTime(visit.created_at),
+                    visit.line_display_name || '-',
+                    visit.device_type || '-',
+                    visit.browser || '-',
+                    visit.os || '-',
+                    visit.referrer || '-',
+                    visit.visitor_ip || '-',
+                    visit.session_id || '-'
+                ];
+            });
+
+            // CSV文字列を生成
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            ].join('\n');
+
+            // BOM付きCSV（Excelで文字化けしないように）
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            // ダウンロード
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const filename = `訪問履歴_${this.selectedLink?.name || 'リンク'}_${new Date().toISOString().slice(0, 10)}.csv`;
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            console.log(`✅ CSV exported: ${filename}`);
         }
     };
 }
