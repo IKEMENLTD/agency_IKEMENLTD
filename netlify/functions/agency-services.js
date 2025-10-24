@@ -77,11 +77,12 @@ exports.handler = async (event) => {
       };
     }
 
-    // アクティブなサービス一覧を取得
+    // アクティブなサービス一覧を取得（TaskMate AI と LiteWEB+ のみ）
     const { data: services, error: servicesError } = await supabase
       .from('services')
       .select('id, name, description, domain, default_commission_rate, default_referral_rate, subscription_price, status')
       .eq('status', 'active')
+      .in('name', ['TaskMate AI', 'LiteWEB+'])
       .order('name');
 
     if (servicesError) {
