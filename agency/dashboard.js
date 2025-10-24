@@ -730,9 +730,10 @@ function agencyDashboard() {
         async loadDashboardData() {
             console.log('📊 loadDashboardData() started');
             try {
-                console.log('📥 Loading stats and tracking links in parallel...');
+                console.log('📥 Loading stats, services, and tracking links in parallel...');
                 await Promise.all([
                     this.loadStats(),
+                    this.loadServices(),  // ⭐ サービス読み込みを追加
                     this.loadTrackingLinks()
                 ]);
                 console.log('✅ loadDashboardData() completed successfully');
