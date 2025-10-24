@@ -1,6 +1,6 @@
 -- ================================================================
 -- 株式会社イケメン 代理店管理システム
--- サービステーブル セットアップスクリプト
+-- サービステーブル セットアップスクリプト（完璧版）
 -- ================================================================
 --
 -- 実行手順:
@@ -11,10 +11,14 @@
 --
 -- ================================================================
 
--- 1. servicesテーブルの作成
+-- ================================================================
+-- STEP 1: テーブル作成
+-- ================================================================
+
+-- 1-1. servicesテーブルの作成
 CREATE TABLE IF NOT EXISTS services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL UNIQUE,  -- サービス名は一意
+    name VARCHAR(255) NOT NULL,
     description TEXT,
     domain VARCHAR(255),
     default_commission_rate NUMERIC(5,2) DEFAULT 20.00,  -- 基本統括報酬率: 粗利の20%
@@ -25,69 +29,90 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. agency_service_settingsテーブルの作成
--- 代理店ごとにサービスの報酬率をカスタマイズ可能
+-- 1-2. nameカラムにUNIQUE制約を追加（既に存在する場合はエラーを無視）
+DO $$
+BEGIN
+    ALTER TABLE services ADD CONSTRAINT services_name_unique UNIQUE (name);
+EXCEPTION
+    WHEN duplicate_table THEN NULL;
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 1-3. agency_service_settingsテーブルの作成
 CREATE TABLE IF NOT EXISTS agency_service_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agency_id UUID NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
-    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-    commission_rate NUMERIC(5,2),  -- カスタム報酬率（NULLの場合はデフォルト使用）
+    agency_id UUID NOT NULL,
+    service_id UUID NOT NULL,
+    commission_rate NUMERIC(5,2),
     referral_rate NUMERIC(5,2),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(agency_id, service_id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. agency_tracking_linksにservice_idカラムを追加
-ALTER TABLE agency_tracking_links
-ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL;
+-- 1-4. agency_service_settingsにUNIQUE制約を追加
+DO $$
+BEGIN
+    ALTER TABLE agency_service_settings
+    ADD CONSTRAINT agency_service_settings_unique UNIQUE (agency_id, service_id);
+EXCEPTION
+    WHEN duplicate_table THEN NULL;
+    WHEN duplicate_object THEN NULL;
+END $$;
 
--- 4. agency_tracking_linksにagency_idカラムを追加（存在しない場合）
-ALTER TABLE agency_tracking_links
-ADD COLUMN IF NOT EXISTS agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE;
+-- ================================================================
+-- STEP 2: 既存テーブルへのカラム追加
+-- ================================================================
 
--- 5. agency_tracking_linksにtracking_codeカラムを追加（存在しない場合）
+-- 2-1. agency_tracking_linksにカラムを追加
 ALTER TABLE agency_tracking_links
-ADD COLUMN IF NOT EXISTS tracking_code VARCHAR(50) UNIQUE;
+ADD COLUMN IF NOT EXISTS service_id UUID;
 
--- 6. agency_tracking_linksにnameカラムを追加（存在しない場合）
+ALTER TABLE agency_tracking_links
+ADD COLUMN IF NOT EXISTS agency_id UUID;
+
+ALTER TABLE agency_tracking_links
+ADD COLUMN IF NOT EXISTS tracking_code VARCHAR(50);
+
 ALTER TABLE agency_tracking_links
 ADD COLUMN IF NOT EXISTS name VARCHAR(255);
 
--- 7. agency_conversionsにconversion_typeカラムを追加（存在しない場合）
+-- 2-2. tracking_codeにUNIQUE制約を追加
+DO $$
+BEGIN
+    ALTER TABLE agency_tracking_links
+    ADD CONSTRAINT agency_tracking_links_tracking_code_unique UNIQUE (tracking_code);
+EXCEPTION
+    WHEN duplicate_table THEN NULL;
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 2-3. agency_conversionsにカラムを追加
 ALTER TABLE agency_conversions
 ADD COLUMN IF NOT EXISTS conversion_type VARCHAR(100);
 
--- 8. agency_conversionsにtracking_link_idカラムを追加（存在しない場合）
 ALTER TABLE agency_conversions
-ADD COLUMN IF NOT EXISTS tracking_link_id UUID REFERENCES agency_tracking_links(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS tracking_link_id UUID;
 
--- 9. agency_conversionsにagency_idカラムを追加（存在しない場合）
 ALTER TABLE agency_conversions
-ADD COLUMN IF NOT EXISTS agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS agency_id UUID;
 
--- 10. agency_commissionsにagency_idカラムを追加（存在しない場合）
+-- 2-4. agency_commissionsにカラムを追加
 ALTER TABLE agency_commissions
-ADD COLUMN IF NOT EXISTS agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS agency_id UUID;
 
--- 11. agency_commissionsにperiod_startとperiod_endカラムを追加（存在しない場合）
 ALTER TABLE agency_commissions
 ADD COLUMN IF NOT EXISTS period_start TIMESTAMP WITH TIME ZONE;
 
 ALTER TABLE agency_commissions
 ADD COLUMN IF NOT EXISTS period_end TIMESTAMP WITH TIME ZONE;
 
--- 12. agency_commissionsにcommission_rateカラムを追加（存在しない場合）
 ALTER TABLE agency_commissions
 ADD COLUMN IF NOT EXISTS commission_rate NUMERIC(5,2);
 
--- 13. agenciesテーブルにカラムを追加（存在しない場合）
+-- 2-5. agenciesテーブルにカラムを追加
 ALTER TABLE agencies
-ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT gen_random_uuid();
-
-ALTER TABLE agencies
-ADD COLUMN IF NOT EXISTS code VARCHAR(50) UNIQUE;
+ADD COLUMN IF NOT EXISTS code VARCHAR(50);
 
 ALTER TABLE agencies
 ADD COLUMN IF NOT EXISTS name VARCHAR(255);
@@ -104,15 +129,12 @@ ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
 ALTER TABLE agencies
 ADD COLUMN IF NOT EXISTS own_commission_rate NUMERIC(5,2) DEFAULT 20.00;
 
--- 14. agency_usersテーブルにカラムを追加（存在しない場合）
+-- 2-6. agency_usersテーブルにカラムを追加
 ALTER TABLE agency_users
-ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT gen_random_uuid();
+ADD COLUMN IF NOT EXISTS agency_id UUID;
 
 ALTER TABLE agency_users
-ADD COLUMN IF NOT EXISTS agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE;
-
-ALTER TABLE agency_users
-ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;
+ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 
 ALTER TABLE agency_users
 ADD COLUMN IF NOT EXISTS password_hash TEXT;
@@ -120,7 +142,110 @@ ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE agency_users
 ADD COLUMN IF NOT EXISTS name VARCHAR(255);
 
--- 15. 初期データの挿入（報酬率: 全て粗利の20%）
+-- ================================================================
+-- STEP 3: 外部キー制約の追加
+-- ================================================================
+
+-- 3-1. agency_service_settingsの外部キー
+DO $$
+BEGIN
+    ALTER TABLE agency_service_settings
+    ADD CONSTRAINT fk_agency_service_settings_agency
+    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE agency_service_settings
+    ADD CONSTRAINT fk_agency_service_settings_service
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 3-2. agency_tracking_linksの外部キー
+DO $$
+BEGIN
+    ALTER TABLE agency_tracking_links
+    ADD CONSTRAINT fk_agency_tracking_links_service
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE agency_tracking_links
+    ADD CONSTRAINT fk_agency_tracking_links_agency
+    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 3-3. agency_conversionsの外部キー
+DO $$
+BEGIN
+    ALTER TABLE agency_conversions
+    ADD CONSTRAINT fk_agency_conversions_tracking_link
+    FOREIGN KEY (tracking_link_id) REFERENCES agency_tracking_links(id) ON DELETE SET NULL;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE agency_conversions
+    ADD CONSTRAINT fk_agency_conversions_agency
+    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 3-4. agency_commissionsの外部キー
+DO $$
+BEGIN
+    ALTER TABLE agency_commissions
+    ADD CONSTRAINT fk_agency_commissions_agency
+    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- 3-5. agency_usersの外部キー
+DO $$
+BEGIN
+    ALTER TABLE agency_users
+    ADD CONSTRAINT fk_agency_users_agency
+    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ================================================================
+-- STEP 4: インデックスの作成
+-- ================================================================
+
+CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
+CREATE INDEX IF NOT EXISTS idx_services_name ON services(name);
+CREATE INDEX IF NOT EXISTS idx_agency_service_settings_agency_id ON agency_service_settings(agency_id);
+CREATE INDEX IF NOT EXISTS idx_agency_service_settings_service_id ON agency_service_settings(service_id);
+CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_service_id ON agency_tracking_links(service_id);
+CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_agency_id ON agency_tracking_links(agency_id);
+CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_tracking_code ON agency_tracking_links(tracking_code);
+CREATE INDEX IF NOT EXISTS idx_agency_conversions_agency_id ON agency_conversions(agency_id);
+CREATE INDEX IF NOT EXISTS idx_agency_conversions_tracking_link_id ON agency_conversions(tracking_link_id);
+CREATE INDEX IF NOT EXISTS idx_agency_commissions_agency_id ON agency_commissions(agency_id);
+
+-- ================================================================
+-- STEP 5: 初期データの投入（報酬率: 全て粗利の20%）
+-- ================================================================
+
+-- 5-1. 既存のTaskMate AIとLiteWEB+を削除（冪等性確保）
+DELETE FROM services WHERE name IN ('TaskMate AI', 'LiteWEB+');
+
+-- 5-2. 新しいデータを挿入
 INSERT INTO services (name, description, domain, default_commission_rate, default_referral_rate, subscription_price, status)
 VALUES
     (
@@ -140,25 +265,12 @@ VALUES
         0.00,
         4980,
         'active'
-    )
-ON CONFLICT (name) DO UPDATE SET
-    default_commission_rate = EXCLUDED.default_commission_rate,
-    default_referral_rate = EXCLUDED.default_referral_rate,
-    updated_at = NOW();
+    );
 
--- 16. インデックスの作成（パフォーマンス最適化）
-CREATE INDEX IF NOT EXISTS idx_services_status ON services(status);
-CREATE INDEX IF NOT EXISTS idx_services_name ON services(name);
-CREATE INDEX IF NOT EXISTS idx_agency_service_settings_agency_id ON agency_service_settings(agency_id);
-CREATE INDEX IF NOT EXISTS idx_agency_service_settings_service_id ON agency_service_settings(service_id);
-CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_service_id ON agency_tracking_links(service_id);
-CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_agency_id ON agency_tracking_links(agency_id);
-CREATE INDEX IF NOT EXISTS idx_agency_tracking_links_tracking_code ON agency_tracking_links(tracking_code);
-CREATE INDEX IF NOT EXISTS idx_agency_conversions_agency_id ON agency_conversions(agency_id);
-CREATE INDEX IF NOT EXISTS idx_agency_conversions_tracking_link_id ON agency_conversions(tracking_link_id);
-CREATE INDEX IF NOT EXISTS idx_agency_commissions_agency_id ON agency_commissions(agency_id);
+-- ================================================================
+-- STEP 6: セットアップ完了確認
+-- ================================================================
 
--- 17. 確認クエリ
 SELECT
     '✅ セットアップ完了！' as status,
     COUNT(*) as service_count,
@@ -167,14 +279,22 @@ FROM services
 WHERE status = 'active';
 
 -- ================================================================
--- セットアップ完了後の確認
+-- 確認クエリ（セットアップ後に実行してください）
 -- ================================================================
--- 以下のクエリを実行して、正しく設定されているか確認してください：
 --
--- SELECT * FROM services;
--- SELECT * FROM agency_service_settings;
+-- -- 全サービスを確認
+-- SELECT
+--     name as "サービス名",
+--     default_commission_rate as "報酬率(%)",
+--     subscription_price as "月額(円)",
+--     status as "ステータス"
+-- FROM services
+-- ORDER BY name;
 --
--- 期待される結果:
--- - TaskMate AI: 報酬率 20.00%
--- - LiteWEB+: 報酬率 20.00%
+-- -- 期待される結果:
+-- -- | サービス名   | 報酬率(%) | 月額(円) | ステータス |
+-- -- |-------------|----------|---------|----------|
+-- -- | TaskMate AI | 20.00    | 2980    | active   |
+-- -- | LiteWEB+    | 20.00    | 4980    | active   |
+--
 -- ================================================================
