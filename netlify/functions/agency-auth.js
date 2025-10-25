@@ -258,6 +258,20 @@ exports.handler = async (event) => {
 
         // Generate JWT token
         logger.log('=== STEP 6: JWT トークン生成 ===');
+
+        // セキュリティ: JWT_SECRETが未設定の場合はエラーをスロー
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret || jwtSecret === 'your-jwt-secret') {
+            logger.error('❌ CRITICAL: JWT_SECRET is not properly configured');
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    error: 'サーバー設定エラーが発生しました。管理者にお問い合わせください。'
+                })
+            };
+        }
+
         const token = jwt.sign(
             {
                 userId: user.id,
@@ -265,7 +279,7 @@ exports.handler = async (event) => {
                 email: user.email,
                 role: user.role
             },
-            process.env.JWT_SECRET || 'your-jwt-secret',
+            jwtSecret,
             { expiresIn: '7d' }
         );
         logger.log('✅ JWT トークン生成完了');

@@ -46,7 +46,7 @@ exports.handler = async (event) => {
 
     try {
         // Verify JWT
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         if (!agencyId || decoded.agencyId !== agencyId) {
             return {

@@ -58,7 +58,7 @@ exports.handler = async (event) => {
 
         let decoded;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret');
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
         } catch (err) {
             return {
                 statusCode: 401,

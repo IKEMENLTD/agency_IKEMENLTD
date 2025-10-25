@@ -36,9 +36,19 @@ exports.handler = async (event) => {
 
     const token = authHeader.substring(7);
 
+    // セキュリティ: JWT_SECRETが未設定の場合はエラーをスロー
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || jwtSecret === 'your-jwt-secret') {
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'サーバー設定エラーが発生しました' })
+        };
+    }
+
     try {
         // Verify JWT
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret');
+        const decoded = jwt.verify(token, jwtSecret);
 
         if (!agencyId || decoded.agencyId !== agencyId) {
             return {

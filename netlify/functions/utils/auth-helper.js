@@ -82,8 +82,14 @@ function verifyToken(token) {
         };
     }
 
+    // セキュリティ: JWT_SECRETが未設定の場合はエラーをスロー
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || jwtSecret === 'your-jwt-secret') {
+        throw new Error('SECURITY ERROR: JWT_SECRET environment variable is not properly configured');
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret');
+        const decoded = jwt.verify(token, jwtSecret);
         return {
             valid: true,
             decoded,
