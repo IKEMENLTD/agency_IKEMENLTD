@@ -1930,6 +1930,17 @@
         // Alpine.jsの初期化をログ
         console.log('📦 Scripts loading...');
 
+        // XSS対策: HTMLエスケープ関数
+        function escapeHtml(unsafe) {
+            if (unsafe === null || unsafe === undefined) return '';
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // グローバルエラーハンドラ
         window.addEventListener('error', function(event) {
             console.error('❌ Global error caught:',  {
@@ -1941,14 +1952,15 @@
             });
 
             // エラーを画面に表示（デバッグ用）
+            // XSS対策: HTMLエスケープを使用
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #fee; color: #c00; padding: 20px; z-index: 99999; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto;';
             errorDiv.innerHTML = `
                 <strong>❌ エラーが発生しました</strong><br>
-                <strong>メッセージ:</strong> ${event.message}<br>
-                <strong>ファイル:</strong> ${event.filename}<br>
-                <strong>行:</strong> ${event.lineno}:${event.colno}<br>
-                <strong>スタック:</strong> ${event.error ? event.error.stack : 'なし'}<br>
+                <strong>メッセージ:</strong> ${escapeHtml(event.message)}<br>
+                <strong>ファイル:</strong> ${escapeHtml(event.filename)}<br>
+                <strong>行:</strong> ${escapeHtml(event.lineno)}:${escapeHtml(event.colno)}<br>
+                <strong>スタック:</strong> ${escapeHtml(event.error ? event.error.stack : 'なし')}<br>
                 <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #c00; color: white; border: none; cursor: pointer;">閉じる</button>
             `;
             document.body.appendChild(errorDiv);
@@ -1958,11 +1970,12 @@
         window.addEventListener('unhandledrejection', function(event) {
             console.error('❌ Unhandled promise rejection:', event.reason);
 
+            // XSS対策: HTMLエスケープを使用
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #fea; color: #840; padding: 20px; z-index: 99999; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto;';
             errorDiv.innerHTML = `
                 <strong>⚠️  Promise エラーが発生しました</strong><br>
-                <strong>理由:</strong> ${event.reason}<br>
+                <strong>理由:</strong> ${escapeHtml(event.reason)}<br>
                 <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #840; color: white; border: none; cursor: pointer;">閉じる</button>
             `;
             document.body.appendChild(errorDiv);
