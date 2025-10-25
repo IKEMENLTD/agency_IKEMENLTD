@@ -303,12 +303,13 @@ ${resetUrl}
 
             // 本番環境ではSendGridまたは他のメールサービスを設定してください
 
-            // データベースにリセットURLを保存（一時的な解決策）
+            // データベースにリセットURLを保存（開発用）
+            // セキュリティ: plain_tokenは保存しない（ログのみに出力）
             await supabase
                 .from('password_reset_tokens')
                 .update({
-                    reset_url: resetUrl,
-                    plain_token: resetToken // 開発用：平文トークンも保存
+                    reset_url: resetUrl
+                    // plain_token: 削除 - セキュリティリスクのため保存しない
                 })
                 .eq('token', hashedToken);
         }

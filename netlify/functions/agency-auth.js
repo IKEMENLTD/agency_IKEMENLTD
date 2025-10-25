@@ -273,11 +273,11 @@ exports.handler = async (event) => {
                 role: user.role
             },
             jwtSecret,
-            { expiresIn: '7d' }
+            { expiresIn: '24h' }  // セキュリティ向上: 7日間 → 24時間
         );
         logger.log('✅ JWT トークン生成完了');
         logger.log('- トークン長:', token.length);
-        logger.log('- 有効期限: 7日間');
+        logger.log('- 有効期限: 24時間');
 
         // セキュアなCookie設定を取得
         const cookieOptions = getSecureCookieOptions();
