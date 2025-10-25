@@ -1,7 +1,7 @@
 [build]
   publish = "."
   functions = "netlify/functions"
-  command = "echo 'Build complete'"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -55,7 +55,7 @@
     Expires = "0"
 
     # Content Security Policy
-    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://code.getmdl.io; img-src 'self' data: https:; connect-src 'self' https://api64.ipify.org https://api.ipify.org https://ipinfo.io https://*.supabase.co https://www.google-analytics.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://code.getmdl.io; img-src 'self' data: https:; connect-src 'self' https://api64.ipify.org https://api.ipify.org https://ipinfo.io https://*.supabase.co https://www.google-analytics.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
 
 # Function headers - CORS is handled by cors-headers.js utility
 # These headers are for non-authenticated endpoints only
