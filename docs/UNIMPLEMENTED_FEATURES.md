@@ -1,477 +1,771 @@
-# 未実装機能一覧
+# 未実装機能完全分析レポート（詳細版）
 
 **調査日**: 2025-10-25
-**調査対象**: イケメン代理店管理システム
-**調査範囲**: 代理店画面（agency/）、管理画面（admin/）、バックエンドAPI、データベーステーブル
+**調査者**: Claude (Anthropic)
+**調査範囲**: 全ソースコード（API 18個、フロントエンド 6個、データベーススキーマ）
 
 ---
 
 ## エグゼクティブサマリー
 
-本調査では、イケメン代理店管理システムのフロントエンド、バックエンドAPI、データベーステーブルを横断的に分析し、未実装機能を特定しました。
+### 調査統計
+- **調査ファイル数**: 26個
+- **発見された未実装機能**: 5個
+- **発見されたバグ**: 3個
+- **クリティカルな問題**: 2個（報酬分配、セキュリティ）
 
-**主な発見:**
-- 代理店画面で2つのAPIエンドポイントが未実装
-- 4段階代理店制度のデータベーステーブルは実装済みだが、フロントエンド表示が一部未完成
-- 管理画面のバックエンドAPIは全て実装済み
-- 未使用のデータベーステーブルが複数存在（TaskMate AI関連機能）
+### 重大な発見
+
+#### 🚨 **クリティカル問題 #1: 報酬分配ロジック未実装**
+**ビジネスインパクト**: リファラル報酬（2%）が支払われていない可能性が**極めて高い**
+
+**証拠**:
+- `stripe-webhook.js` に `commission_distributions` テーブルへのINSERTなし
+- `get_agency_hierarchy()` 関数が呼ばれていない
+- コンバージョン記録（`agency_conversions`）のみ実装
+
+**影響**:
+- 4段階代理店制度が**機能していない**
+- 契約上の義務違反の可能性
+- 代理店との信頼関係悪化リスク
 
 ---
 
-## 1. 代理店画面（/agency/）
+#### 🚨 **クリティカル問題 #2: セキュリティ懸念**
+**場所**: `agency-auth.js:38`
 
-### 1.1 フロントエンドのみ実装（バックエンドなし）
-
-#### ❌ 階層情報API（4段階代理店制度）
-- **場所**: `agency/dashboard.js:1607-1633`
-- **説明**: 代理店の親子関係（階層チェーン）と子代理店リストを取得するAPI
-- **必要なAPI**: `/.netlify/functions/agency-referral-info`
-- **フロントエンドの実装状況**:
-  - エラーハンドリング実装済み（404エラーは正常として扱う）
-  - 空データで初期化される
-- **データベーステーブル**:
-  - ✅ `agencies.parent_agency_id` カラム存在
-  - ✅ `agencies.level` カラム存在
-  - ✅ `get_agency_hierarchy()` 関数実装済み
-- **返却すべきデータ構造**:
 ```javascript
-{
-  childAgencies: [
-    { id, code, name, level, own_commission_rate, created_at }
-  ],
-  totalChildren: 0,
-  hierarchyChain: [
-    { agency_id, level, own_commission_rate, parent_agency_id }
-  ]
-}
+// TODO: テスト後に必ず有効化すること
 ```
-- **優先度**: **Medium** - 4段階代理店制度の階層可視化に必要だが、コミッション計算には不要
+
+**問題**: 本番環境でテストコード/デバッグコードが残っている可能性
 
 ---
 
-#### ❌ コミッション詳細履歴API（4段階代理店制度）
-- **場所**: `agency/dashboard.js:1637-1674`
-- **説明**: 自己報酬とリファラル報酬の詳細な内訳と履歴を取得するAPI
-- **必要なAPI**: `/.netlify/functions/agency-commission-details`
-- **フロントエンドの実装状況**:
-  - コメントアウト済み（Future implementation）
-  - 現在は空配列を返す
-  - `loadingCommissions` フラグは実装済み
-- **データベーステーブル**:
-  - ✅ `agency_commission_distributions` テーブル実装済み
-  - ✅ 以下のカラムが存在:
-    - `commission_type` (own/referral)
-    - `deal_amount` (案件総額)
-    - `closing_agency_id` (成約した代理店)
-    - `agency_level` (階層レベル)
-    - `payment_status` (pending/approved/paid/cancelled)
-- **返却すべきデータ構造**:
+## 1. 未実装API詳細分析
+
+### 1.1 ❌ agency-commission-details（コミッション詳細API）
+
+#### 現状分析
+**フロントエンドの実装状況**:
+- `agency/dashboard.js:1637-1674` に完全実装済み
+- 現在はコメントアウト（line 1640）:
+  ```javascript
+  // TODO: Future feature - Commission distribution history
+  ```
+
+**データベーステーブル**:
+- ✅ `agency_commission_distributions` テーブル存在
+- ✅ 12カラム実装済み
+- ❌ データが一切INSERT されていない（Webhookが未実装のため）
+
+**フロントエンド実装箇所**:
 ```javascript
-{
-  commissionDetails: [
-    {
-      id,
-      conversion_id,
-      commission_type, // 'own' or 'referral'
-      deal_amount,
-      commission_rate,
-      commission_amount,
-      closing_agency_name, // 成約代理店名
-      agency_level,
-      payment_status,
-      paid_at,
-      created_at
+// agency/dashboard.js:1637-1674
+async loadCommissionHistory() {
+    if (this.loadingCommissions) return;
+    this.loadingCommissions = true;
+
+    try {
+        // 現在はダミーデータを返す
+        this.commissionDetails = [];
+
+        /* ↓ コメントアウト解除すれば動作 ↓
+        const response = await fetch('/.netlify/functions/agency-commission-details', {
+            headers: {
+                'Authorization': `Bearer ${this.token}`,
+                'X-Agency-Id': this.agencyInfo.id
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            this.commissionDetails = data.commissionDetails || [];
+        }
+        */
+    } catch (error) {
+        console.error('Failed to load commission history:', error);
+    } finally {
+        this.loadingCommissions = false;
     }
-  ]
-}
-```
-- **優先度**: **High** - 4段階代理店制度の報酬透明性を確保するために重要
-
----
-
-### 1.2 表示されているが動作しない機能
-
-#### ⚠️ 報酬タブの「コミッション履歴」ボタン
-- **場所**: `agency/index.html:804` - タブボタン
-- **説明**: 報酬タブを開くと `loadCommissionHistory()` が呼ばれるが、APIが未実装のため空データが表示される
-- **影響**: ユーザーがボタンをクリックしても履歴が表示されない
-- **エラー表示**: なし（404エラーを正常として扱う設計）
-- **優先度**: **High** - ユーザーが期待する機能が動作しない
-
----
-
-### 1.3 データベーステーブルはあるが未使用
-
-#### 📊 4段階代理店制度の完全実装
-- **テーブル**: `agency_commission_distributions`
-- **カラム数**: 12カラム
-- **関連機能**:
-  - 成約時の報酬自動分配
-  - リファラルコミッション計算（固定2%）
-  - 階層別報酬率（Level 1: 20%, Level 2: 18%, Level 3: 16%, Level 4: 14%）
-- **ヘルパー関数**:
-  - ✅ `get_agency_hierarchy(start_agency_id UUID)` - 階層チェーン取得
-  - ✅ `get_standard_commission_rate(agency_level INTEGER)` - 標準報酬率取得
-- **課題**:
-  - フロントエンドに報酬詳細を表示する機能が未実装
-  - 報酬分配ロジックのトリガーが未実装（Webhook等）
-- **優先度**: **High** - ビジネスモデルの中核機能
-
----
-
-## 2. 管理画面（/admin/）
-
-### 2.1 フロントエンドのみ実装（バックエンドなし）
-
-**該当なし** - 管理画面で呼ばれている全てのAPIが実装済み:
-- ✅ `validate-admin` - 管理者認証
-- ✅ `get-tracking-stats` - 統計情報取得
-- ✅ `create-tracking-link` - トラッキングリンク作成
-- ✅ `admin-agencies` - 代理店管理（GET/POST）
-
----
-
-### 2.2 表示されているが動作しない機能
-
-**該当なし** - 管理画面の全機能が正常に動作
-
----
-
-### 2.3 データベーステーブルはあるが未使用
-
-#### 📦 TaskMate AI関連テーブル（システム外機能）
-
-以下のテーブルは、TaskMate AIの会話履歴やコード生成機能で使用されるが、代理店管理システムとは独立している:
-
-1. **conversations** - 会話履歴
-2. **conversation_contexts** - 会話コンテキスト
-3. **session_checkpoints** - セッションチェックポイント
-4. **code_revisions** - コード改訂履歴
-5. **code_shares** - コード共有
-6. **code_share_access_logs** - アクセスログ
-7. **conversation_code_relations** - 会話とコードの関連付け
-8. **user_code_history** - ユーザーコード履歴
-9. **code_quality_checks** - コード品質チェック
-10. **generated_codes** - 生成されたコード
-11. **requirement_extractions** - 要件抽出
-12. **professional_support_tickets** - プロフェッショナルサポートチケット
-13. **vision_usage** - Vision API使用状況
-
-**備考**: これらはTaskMate AIサービス本体で使用されるテーブルであり、代理店管理システムでは直接使用しない。
-
----
-
-## 3. 相互連携の問題
-
-### 3.1 代理店→管理画面の連携不足
-
-#### ✅ 連携済み
-- 代理店登録 → 管理画面で承認
-- 代理店トラッキングリンク → 管理画面で統計表示
-- 代理店のステータス変更 → リアルタイムで反映
-
-#### ⚠️ 一部未実装
-- **4段階代理店制度の階層表示**
-  - 管理画面で代理店の親子関係（階層ツリー）を表示する機能が未実装
-  - `admin/index.html` に階層表示UIがない
-  - `admin-agencies.js` APIは階層データを返していない
-  - **優先度**: Medium
-
----
-
-### 3.2 管理画面→代理店の連携不足
-
-#### ✅ 連携済み
-- 管理画面で代理店承認 → 代理店画面でログイン可能
-- 管理画面で代理店一時停止 → 代理店画面でログイン不可
-
-#### ❌ 未実装
-- **管理画面からの一括通知機能**
-  - 管理画面から代理店へのメール通知機能が未実装
-  - 承認/非承認時の自動通知がない
-  - **必要なテーブル**: notification_logs, email_templates
-  - **優先度**: Low
-
----
-
-## 4. 優先度別実装推奨順序
-
-### High（クリティカル - ビジネス影響大）
-
-#### 1. ✅ コミッション詳細履歴API (`agency-commission-details`)
-- **理由**: 4段階代理店制度の報酬透明性確保のため必須
-- **工数見積**: 3-5日
-- **必要な実装**:
-  - API作成: `netlify/functions/agency-commission-details.js`
-  - SQL: `agency_commission_distributions` テーブルからデータ取得
-  - JOIN: `agencies`, `agency_conversions` テーブル
-  - フロントエンド: 既に実装済み（コメントアウトを解除）
-- **依存関係**:
-  - Stripe Webhookでのコンバージョン記録
-  - コミッション分配ロジックの実装
-
-#### 2. 📊 報酬分配トリガーの実装
-- **理由**: 4段階代理店制度の自動報酬計算に必須
-- **工数見積**: 5-7日
-- **必要な実装**:
-  - Stripe Webhook (`stripe-webhook.js`) の拡張
-  - 階層チェーン取得とコミッション計算ロジック
-  - `agency_commission_distributions` への自動INSERT
-  - トランザクション処理
-- **依存関係**:
-  - `get_agency_hierarchy()` 関数（実装済み）
-  - `get_standard_commission_rate()` 関数（実装済み）
-
----
-
-### Medium（重要 - ユーザー体験向上）
-
-#### 3. 🏢 階層情報API (`agency-referral-info`)
-- **理由**: 代理店が自分の子代理店を確認できるようにする
-- **工数見積**: 2-3日
-- **必要な実装**:
-  - API作成: `netlify/functions/agency-referral-info.js`
-  - SQL: `get_agency_hierarchy()` 関数を使用
-  - フロントエンド: 既に実装済み
-- **依存関係**: なし（単独で実装可能）
-
-#### 4. 📋 管理画面での階層ツリー表示
-- **理由**: 管理者が代理店の親子関係を把握できるようにする
-- **工数見積**: 3-4日
-- **必要な実装**:
-  - `admin-agencies.js` APIの拡張（階層データ追加）
-  - `admin/index.html` にツリー表示UI追加
-  - JavaScript: 再帰的なツリー構造レンダリング
-- **依存関係**: agency-referral-info API
-
----
-
-### Low（あれば便利）
-
-#### 5. 📧 管理画面からの一括通知機能
-- **理由**: 代理店への連絡を効率化
-- **工数見積**: 5-7日
-- **必要な実装**:
-  - テーブル作成: `notification_logs`, `email_templates`
-  - API作成: `admin-send-notification.js`
-  - メール送信: SendGrid/AWS SES統合
-  - フロントエンド: 通知送信UI
-- **依存関係**: メール送信サービスの契約
-
-#### 6. 📊 代理店パフォーマンスダッシュボード（管理画面）
-- **理由**: 管理者が全代理店のパフォーマンスを一覧で確認
-- **工数見積**: 4-5日
-- **必要な実装**:
-  - API作成: `admin-analytics.js`
-  - SQL: 集計クエリ（代理店別売上、CV数、CVR）
-  - フロントエンド: Chart.js でグラフ表示
-- **依存関係**: なし
-
----
-
-## 5. 技術的詳細
-
-### 5.1 未実装APIの仕様書
-
-#### API: `agency-referral-info`
-```javascript
-// GET /.netlify/functions/agency-referral-info
-// Headers: Authorization: Bearer {token}, X-Agency-Id: {agencyId}
-
-// Response:
-{
-  "childAgencies": [
-    {
-      "id": "uuid",
-      "code": "AG001-SUB01",
-      "name": "株式会社サブ代理店",
-      "level": 2,
-      "own_commission_rate": 18.00,
-      "created_at": "2025-01-01T00:00:00Z",
-      "total_conversions": 10,
-      "total_commission": 36000
-    }
-  ],
-  "totalChildren": 1,
-  "hierarchyChain": [
-    {
-      "agency_id": "uuid",
-      "level": 1,
-      "own_commission_rate": 20.00,
-      "parent_agency_id": null
-    },
-    {
-      "agency_id": "uuid",
-      "level": 2,
-      "own_commission_rate": 18.00,
-      "parent_agency_id": "parent-uuid"
-    }
-  ]
 }
 ```
 
-**実装SQL:**
-```sql
--- 子代理店リスト
-SELECT
-  a.id, a.code, a.name, a.level, a.own_commission_rate, a.created_at,
-  COUNT(ac.id) as total_conversions,
-  COALESCE(SUM(acd.commission_amount), 0) as total_commission
-FROM agencies a
-LEFT JOIN agency_conversions ac ON ac.agency_id = a.id
-LEFT JOIN agency_commission_distributions acd ON acd.agency_id = a.id
-WHERE a.parent_agency_id = $1
-GROUP BY a.id;
+#### 完全な実装コード
 
--- 階層チェーン
-SELECT * FROM get_agency_hierarchy($1);
+**ファイル名**: `netlify/functions/agency-commission-details.js`
+
+```javascript
+const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders } = require('./utils/cors-headers');
+const { verifyToken } = require('./utils/auth-helper');
+const { applyRateLimit, NORMAL_RATE_LIMIT } = require('./utils/rate-limiter');
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+exports.handler = async (event) => {
+    const headers = getCorsHeaders(event);
+
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
+    // レート制限
+    const rateLimitResponse = applyRateLimit(event, NORMAL_RATE_LIMIT);
+    if (rateLimitResponse) return rateLimitResponse;
+
+    // JWT認証
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const token = authHeader?.replace('Bearer ', '');
+    const verification = verifyToken(token);
+
+    if (!verification.valid) {
+        return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: '認証が必要です' })
+        };
+    }
+
+    // Agency ID確認
+    const agencyId = event.headers['x-agency-id'] || event.headers['X-Agency-Id'];
+    if (!agencyId) {
+        return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Agency ID が必要です' })
+        };
+    }
+
+    // クエリパラメータ
+    const params = event.queryStringParameters || {};
+    const periodStart = params.period_start || null;
+    const periodEnd = params.period_end || null;
+
+    try {
+        // コミッション詳細取得
+        let query = supabase
+            .from('agency_commission_distributions')
+            .select(`
+                id,
+                conversion_id,
+                commission_type,
+                deal_amount,
+                commission_rate,
+                commission_amount,
+                closing_agency_id,
+                agency_level,
+                payment_status,
+                paid_at,
+                created_at,
+                agency_conversions (
+                    conversion_type,
+                    users (
+                        email
+                    )
+                ),
+                agencies!closing_agency_id (
+                    name
+                )
+            `)
+            .eq('agency_id', agencyId)
+            .order('created_at', { ascending: false });
+
+        // 期間フィルター
+        if (periodStart) {
+            query = query.gte('created_at', periodStart);
+        }
+        if (periodEnd) {
+            query = query.lte('created_at', periodEnd);
+        }
+
+        const { data: distributions, error } = await query;
+
+        if (error) {
+            console.error('Database error:', error);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ error: 'データ取得エラー' })
+            };
+        }
+
+        // データ整形
+        const commissionDetails = distributions.map(d => ({
+            id: d.id,
+            conversion_id: d.conversion_id,
+            commission_type: d.commission_type,
+            deal_amount: d.deal_amount,
+            commission_rate: d.commission_rate,
+            commission_amount: d.commission_amount,
+            closing_agency_id: d.closing_agency_id,
+            closing_agency_name: d.agencies?.name || '不明',
+            agency_level: d.agency_level,
+            payment_status: d.payment_status,
+            paid_at: d.paid_at,
+            created_at: d.created_at,
+            conversion_type: d.agency_conversions?.conversion_type || null,
+            user_email: d.agency_conversions?.users?.email || null
+        }));
+
+        // サマリー計算
+        const totalOwn = distributions
+            .filter(d => d.commission_type === 'own')
+            .reduce((sum, d) => sum + (d.commission_amount || 0), 0);
+
+        const totalReferral = distributions
+            .filter(d => d.commission_type === 'referral')
+            .reduce((sum, d) => sum + (d.commission_amount || 0), 0);
+
+        const totalPaid = distributions
+            .filter(d => d.payment_status === 'paid')
+            .reduce((sum, d) => sum + (d.commission_amount || 0), 0);
+
+        const totalPending = distributions
+            .filter(d => d.payment_status === 'pending')
+            .reduce((sum, d) => sum + (d.commission_amount || 0), 0);
+
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({
+                commissionDetails,
+                summary: {
+                    total_own_commission: totalOwn,
+                    total_referral_commission: totalReferral,
+                    total_paid: totalPaid,
+                    total_pending: totalPending,
+                    period: periodStart && periodEnd
+                        ? `${periodStart} ~ ${periodEnd}`
+                        : '全期間'
+                }
+            })
+        };
+
+    } catch (error) {
+        console.error('Unexpected error:', error);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'サーバーエラー' })
+        };
+    }
+};
 ```
 
----
+#### テストケース
 
-#### API: `agency-commission-details`
-```javascript
-// GET /.netlify/functions/agency-commission-details
-// Headers: Authorization: Bearer {token}, X-Agency-Id: {agencyId}
-// Query Params: ?period_start=2025-01-01&period_end=2025-01-31
+```bash
+# 認証トークン取得（先にログイン）
+TOKEN="your_jwt_token_here"
+AGENCY_ID="your_agency_id_here"
 
-// Response:
+# 全期間のコミッション詳細取得
+curl -X GET "https://taskmateai.net/.netlify/functions/agency-commission-details" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Agency-Id: $AGENCY_ID"
+
+# 期間指定
+curl -X GET "https://taskmateai.net/.netlify/functions/agency-commission-details?period_start=2025-01-01&period_end=2025-01-31" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Agency-Id: $AGENCY_ID"
+```
+
+**期待されるレスポンス**:
+```json
 {
   "commissionDetails": [
     {
       "id": "uuid",
-      "conversion_id": "uuid",
-      "commission_type": "own", // or "referral"
+      "commission_type": "own",
       "deal_amount": 10000,
       "commission_rate": 20.00,
       "commission_amount": 2000,
-      "closing_agency_id": "uuid",
       "closing_agency_name": "株式会社イケメン",
-      "agency_level": 1,
       "payment_status": "paid",
-      "paid_at": "2025-02-01T00:00:00Z",
-      "created_at": "2025-01-15T10:30:00Z",
-      "conversion_type": "line_friend",
-      "user_email": "user@example.com"
+      "created_at": "2025-01-15T10:30:00Z"
     }
   ],
   "summary": {
     "total_own_commission": 150000,
     "total_referral_commission": 30000,
     "total_paid": 120000,
-    "total_pending": 60000,
-    "period": "2025年1月"
+    "total_pending": 60000
   }
 }
 ```
 
-**実装SQL:**
-```sql
-SELECT
-  acd.id,
-  acd.conversion_id,
-  acd.commission_type,
-  acd.deal_amount,
-  acd.commission_rate,
-  acd.commission_amount,
-  acd.closing_agency_id,
-  closing.name as closing_agency_name,
-  acd.agency_level,
-  acd.payment_status,
-  acd.paid_at,
-  acd.created_at,
-  ac.conversion_type,
-  u.email as user_email
-FROM agency_commission_distributions acd
-INNER JOIN agencies closing ON closing.id = acd.closing_agency_id
-LEFT JOIN agency_conversions ac ON ac.id = acd.conversion_id
-LEFT JOIN users u ON u.id = ac.user_id
-WHERE acd.agency_id = $1
-  AND acd.created_at >= $2
-  AND acd.created_at <= $3
-ORDER BY acd.created_at DESC;
+#### 実装手順（3-5日）
+
+**Day 1**:
+- API作成（上記コード）
+- ローカルテスト（netlify dev）
+
+**Day 2**:
+- フロントエンドのコメントアウト解除（line 1640-1673）
+- UI表示確認
+
+**Day 3**:
+- エラーハンドリング強化
+- ページネーション実装（オプション）
+
+**Day 4-5**:
+- Netlifyデプロイ
+- 本番テスト
+
+---
+
+### 1.2 ❌ agency-referral-info（階層情報API）
+
+#### 完全な実装コード
+
+**ファイル名**: `netlify/functions/agency-referral-info.js`
+
+```javascript
+const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders } = require('./utils/cors-headers');
+const { verifyToken } = require('./utils/auth-helper');
+const { applyRateLimit, NORMAL_RATE_LIMIT } = require('./utils/rate-limiter');
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+exports.handler = async (event) => {
+    const headers = getCorsHeaders(event);
+
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
+    // レート制限
+    const rateLimitResponse = applyRateLimit(event, NORMAL_RATE_LIMIT);
+    if (rateLimitResponse) return rateLimitResponse;
+
+    // JWT認証
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const token = authHeader?.replace('Bearer ', '');
+    const verification = verifyToken(token);
+
+    if (!verification.valid) {
+        return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: '認証が必要です' })
+        };
+    }
+
+    const agencyId = event.headers['x-agency-id'] || event.headers['X-Agency-Id'];
+    if (!agencyId) {
+        return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Agency ID が必要です' })
+        };
+    }
+
+    try {
+        // 1. 子代理店リスト取得
+        const { data: children, error: childrenError } = await supabase
+            .from('agencies')
+            .select(`
+                id,
+                code,
+                name,
+                level,
+                own_commission_rate,
+                created_at
+            `)
+            .eq('parent_agency_id', agencyId)
+            .order('created_at', { ascending: false });
+
+        if (childrenError) throw childrenError;
+
+        // 2. 各子代理店のコンバージョン数と報酬総額を取得
+        const childrenWithStats = await Promise.all(
+            (children || []).map(async (child) => {
+                // コンバージョン数
+                const { count: conversionCount } = await supabase
+                    .from('agency_conversions')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('agency_id', child.id);
+
+                // 報酬総額
+                const { data: commissions } = await supabase
+                    .from('agency_commission_distributions')
+                    .select('commission_amount')
+                    .eq('agency_id', child.id);
+
+                const totalCommission = (commissions || [])
+                    .reduce((sum, c) => sum + (c.commission_amount || 0), 0);
+
+                return {
+                    ...child,
+                    total_conversions: conversionCount || 0,
+                    total_commission: totalCommission
+                };
+            })
+        );
+
+        // 3. 階層チェーン取得
+        const { data: hierarchy, error: hierarchyError } = await supabase
+            .rpc('get_agency_hierarchy', { start_agency_id: agencyId });
+
+        if (hierarchyError) throw hierarchyError;
+
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({
+                childAgencies: childrenWithStats,
+                totalChildren: childrenWithStats.length,
+                hierarchyChain: hierarchy || []
+            })
+        };
+
+    } catch (error) {
+        console.error('Referral info error:', error);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: 'データ取得エラー' })
+        };
+    }
+};
+```
+
+#### テストケース
+
+```bash
+curl -X GET "https://taskmateai.net/.netlify/functions/agency-referral-info" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Agency-Id: $AGENCY_ID"
 ```
 
 ---
 
-### 5.2 データベーステーブル使用状況
+## 2. Stripe Webhook報酬分配ロジック実装
 
-| テーブル名 | 使用状況 | 使用箇所 | 備考 |
-|-----------|---------|---------|------|
-| `agencies` | ✅ 使用中 | 全API | 代理店マスター |
-| `agency_users` | ✅ 使用中 | agency-auth | ログイン認証 |
-| `agency_tracking_links` | ✅ 使用中 | agency-links, agency-create-link | トラッキングリンク管理 |
-| `agency_tracking_visits` | ✅ 使用中 | agency-analytics, track-visit | 訪問記録 |
-| `agency_conversions` | ✅ 使用中 | agency-analytics, stripe-webhook | コンバージョン記録 |
-| `agency_commissions` | ✅ 使用中 | agency-commissions | 月次報酬集計 |
-| `agency_commission_distributions` | ❌ 未使用 | - | **4段階代理店制度の報酬分配** |
-| `services` | ✅ 使用中 | agency-services | サービスマスター |
-| `agency_service_settings` | ⚠️ 一部使用 | - | サービス別設定（未完全実装） |
-| `password_reset_tokens` | ✅ 使用中 | password-reset-request, password-reset-confirm | パスワードリセット |
-| `user_sessions` | ❌ 未使用 | - | セッション管理（未実装） |
-| `stripe_payments` | ⚠️ 一部使用 | stripe-webhook | Stripe決済記録 |
-| `conversations` | ❌ 別システム | TaskMate AI | 代理店システムでは未使用 |
-| `code_shares` | ❌ 別システム | TaskMate AI | 代理店システムでは未使用 |
+### 現状分析
+
+**証拠**: `stripe-webhook.js` の確認結果
+- `commission_distributions` テーブルへのINSERT: **なし**
+- `get_agency_hierarchy()` 関数の呼び出し: **なし**
+- 実装されているのは `agency_conversions` へのINSERTのみ
+
+### 修正コード
+
+**ファイル**: `netlify/functions/stripe-webhook.js`
+**追加箇所**: `handleCheckoutComplete()` 関数内
+
+```javascript
+// 既存のコードの後に追加（agency_conversions INSERT の後）
+
+// ========== 4段階代理店制度の報酬分配ロジック ==========
+async function distributeCommissions(conversionId, agencyId, dealAmount) {
+    try {
+        console.log('💰 Starting commission distribution for conversion:', conversionId);
+
+        // 1. 階層チェーン取得
+        const { data: hierarchy, error: hierarchyError } = await supabase
+            .rpc('get_agency_hierarchy', { start_agency_id: agencyId });
+
+        if (hierarchyError) {
+            console.error('❌ Failed to get hierarchy:', hierarchyError);
+            return;
+        }
+
+        console.log('📊 Hierarchy chain:', hierarchy);
+
+        // 2. 成約代理店（最下層）の自己報酬
+        const closingAgency = hierarchy[hierarchy.length - 1];
+        const ownCommissionRate = closingAgency.own_commission_rate;
+        const ownCommissionAmount = dealAmount * (ownCommissionRate / 100);
+
+        await supabase
+            .from('agency_commission_distributions')
+            .insert({
+                conversion_id: conversionId,
+                agency_id: agencyId,
+                commission_type: 'own',
+                deal_amount: dealAmount,
+                commission_rate: ownCommissionRate,
+                commission_amount: ownCommissionAmount,
+                closing_agency_id: agencyId,
+                agency_level: closingAgency.level,
+                payment_status: 'pending'
+            });
+
+        console.log(`✅ Own commission: ¥${ownCommissionAmount} (${ownCommissionRate}%)`);
+
+        // 3. 親代理店へのリファラル報酬（固定2%）
+        const REFERRAL_RATE = 2.0;
+        const referralCommissionAmount = dealAmount * (REFERRAL_RATE / 100);
+
+        for (let i = hierarchy.length - 2; i >= 0; i--) {
+            const parentAgency = hierarchy[i];
+
+            await supabase
+                .from('agency_commission_distributions')
+                .insert({
+                    conversion_id: conversionId,
+                    agency_id: parentAgency.agency_id,
+                    commission_type: 'referral',
+                    deal_amount: dealAmount,
+                    commission_rate: REFERRAL_RATE,
+                    commission_amount: referralCommissionAmount,
+                    closing_agency_id: agencyId,
+                    agency_level: parentAgency.level,
+                    payment_status: 'pending'
+                });
+
+            console.log(`✅ Referral commission to Level ${parentAgency.level}: ¥${referralCommissionAmount}`);
+        }
+
+        console.log('🎉 Commission distribution completed!');
+
+    } catch (error) {
+        console.error('❌ Commission distribution failed:', error);
+        // エラーでもコンバージョン記録は保持（報酬は手動で調整）
+    }
+}
+
+// handleCheckoutComplete() 関数内で呼び出し
+async function handleCheckoutComplete(session) {
+    // ... 既存のコード ...
+
+    // コンバージョン記録
+    const { data: conversion, error: conversionError } = await supabase
+        .from('agency_conversions')
+        .insert({
+            agency_id: metadata.agency_id,
+            tracking_code: metadata.tracking_code,
+            user_id: metadata.line_user_id,
+            conversion_type: 'stripe_payment',
+            deal_amount: session.amount_total / 100
+        })
+        .select()
+        .single();
+
+    if (conversionError) {
+        console.error('Failed to record conversion:', conversionError);
+        return;
+    }
+
+    // ★★★ ここに追加 ★★★
+    await distributeCommissions(
+        conversion.id,
+        metadata.agency_id,
+        session.amount_total / 100
+    );
+}
+```
 
 ---
 
-## 6. セキュリティ・パフォーマンス懸念事項
+## 3. 発見されたバグ
 
-### 6.1 セキュリティ
-- ✅ JWT認証実装済み
-- ✅ Row Level Security (RLS) 実装済み
-- ✅ CSRF保護実装済み
-- ⚠️ レート制限が一部のエンドポイントで未実装
-  - `agency-referral-info` (未作成)
-  - `agency-commission-details` (未作成)
+### Bug #1: TODO未解決（セキュリティ）
 
-### 6.2 パフォーマンス
-- ✅ インデックス作成済み（主要テーブル）
-- ✅ 再帰クエリ最適化済み (`get_agency_hierarchy`)
-- ⚠️ N+1クエリの可能性（`agency-commission-details` でJOIN多数）
-  - 推奨: JOINの最適化とEXPLAIN ANALYZE実施
+**場所**: `agency-auth.js:38`
+
+```javascript
+// TODO: テスト後に必ず有効化すること
+```
+
+**影響度**: High
+**推測**: デバッグモードまたはセキュリティチェックが無効化されている可能性
+**修正**: コードを確認し、TODOコメントを削除または機能を有効化
 
 ---
 
-## 7. 推奨アクションプラン
+### Bug #2: 重複import
 
-### Phase 1: クリティカル機能実装（2-3週間）
-1. ✅ `agency-commission-details` API実装
-2. ✅ Stripe Webhookでの報酬分配ロジック実装
-3. ✅ フロントエンドのコメントアウト解除とテスト
+**場所**: 複数ファイル
+
+```javascript
+// stripe-webhook.js:2 と 4
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+```
+
+**影響度**: Low（動作には影響しないが不要）
+**修正**: 重複行を削除
+
+---
+
+### Bug #3: LINE公式URL検証ロジック
+
+**場所**:
+- `agency-complete-registration.js:315`
+- `agency-auth.js:184`
+
+```javascript
+if (!lineOfficialUrl || lineOfficialUrl.includes('@xxx') || lineOfficialUrl.includes('@your-line-id')) {
+    // エラー処理
+}
+```
+
+**問題**: プレースホルダー値（`@xxx`）が本番データに含まれる可能性
+**影響度**: Medium
+**修正**: データベースの `services` テーブルで LINE公式URLを正しい値に更新
+
+---
+
+## 4. データベーステーブル使用状況
+
+| テーブル | INSERT | SELECT | UPDATE | DELETE | 使用率 | 備考 |
+|---------|--------|--------|--------|--------|--------|------|
+| `agencies` | ✅ | ✅ | ✅ | ❌ | 75% | 代理店マスター |
+| `agency_users` | ✅ | ✅ | ✅ | ❌ | 75% | ログイン認証 |
+| `agency_tracking_links` | ✅ | ✅ | ✅ | ✅ | 100% | トラッキングリンク |
+| `agency_conversions` | ✅ | ✅ | ❌ | ❌ | 50% | コンバージョン記録 |
+| `agency_commission_distributions` | ❌ | ❌ | ❌ | ❌ | **0%** | **報酬分配（未実装）** |
+| `agency_commissions` | ✅ | ✅ | ❌ | ❌ | 50% | 月次報酬集計 |
+| `services` | ❌ | ✅ | ❌ | ❌ | 25% | サービスマスター |
+| `password_reset_tokens` | ✅ | ✅ | ✅ | ❌ | 75% | パスワードリセット |
+
+---
+
+## 5. 全APIエンドポイント一覧
+
+| # | エンドポイント | メソッド | 実装 | 認証 | レート制限 | 備考 |
+|---|---------------|---------|------|------|-----------|------|
+| 1 | `agency-auth` | POST | ✅ | - | ✅ STRICT | ログイン |
+| 2 | `agency-analytics` | GET | ✅ | ✅ | ✅ NORMAL | 分析データ |
+| 3 | `agency-billing-stats` | GET | ✅ | ✅ | ✅ NORMAL | 請求統計 |
+| 4 | `agency-commission` | GET | ✅ | ✅ | ✅ NORMAL | 月次報酬 |
+| 5 | `agency-commissions` | GET | ✅ | ✅ | ✅ NORMAL | 報酬一覧 |
+| 6 | `agency-create-link` | POST | ✅ | ✅ | ✅ NORMAL | リンク作成 |
+| 7 | `agency-delete-link` | DELETE | ✅ | ✅ | ✅ NORMAL | リンク削除 |
+| 8 | `agency-link-visits` | GET | ✅ | ✅ | ✅ NORMAL | 訪問履歴 |
+| 9 | `agency-links` | GET | ✅ | ✅ | ✅ NORMAL | リンク一覧 |
+| 10 | `agency-referral-users` | GET | ✅ | ✅ | ✅ NORMAL | 紹介ユーザー |
+| 11 | `agency-services` | GET | ✅ | ✅ | ✅ NORMAL | サービス一覧 |
+| 12 | `agency-settings` | PUT | ✅ | ✅ | ✅ NORMAL | 設定更新 |
+| 13 | `agency-toggle-link` | PUT | ✅ | ✅ | ✅ NORMAL | リンク有効/無効 |
+| 14 | `agency-complete-registration` | POST | ✅ | - | ✅ STRICT | 登録完了 |
+| 15 | `agency-initiate-registration` | POST | ✅ | - | ✅ STRICT | 登録開始 |
+| 16 | `password-reset-request` | POST | ✅ | - | ✅ STRICT | リセット要求 |
+| 17 | `password-reset-confirm` | POST | ✅ | - | ✅ STRICT | リセット確認 |
+| 18 | `stripe-webhook` | POST | ✅ | ⚠️ Stripe | - | Webhook |
+| 19 | **`agency-commission-details`** | GET | ❌ | ✅ | - | **未実装** |
+| 20 | **`agency-referral-info`** | GET | ❌ | ✅ | - | **未実装** |
+
+---
+
+## 6. 優先度別実装推奨順序
+
+### Phase 1: クリティカル機能（2-3週間）
+
+#### 1. Stripe Webhook報酬分配ロジック実装
+- **工数**: 5-7日
+- **優先度**: 🔴 **Critical**
+- **理由**: リファラル報酬が支払われていない
+- **実装手順**: 上記コードを追加 → テスト → デプロイ
+
+#### 2. agency-commission-details API実装
+- **工数**: 3-5日
+- **優先度**: 🔴 **Critical**
+- **理由**: 報酬透明性確保のため必須
+- **実装手順**: 上記コードをコピペ → フロントエンド修正 → テスト
+
+---
 
 ### Phase 2: ユーザー体験向上（1-2週間）
-4. ✅ `agency-referral-info` API実装
-5. ✅ 管理画面での階層ツリー表示
 
-### Phase 3: 運用効率化（2-3週間）
-6. ✅ 一括通知機能実装
-7. ✅ 管理画面パフォーマンスダッシュボード
+#### 3. agency-referral-info API実装
+- **工数**: 2-3日
+- **優先度**: 🟡 **Medium**
+- **理由**: 階層可視化
+
+#### 4. 管理画面での階層ツリー表示
+- **工数**: 3-4日
+- **優先度**: 🟡 **Medium**
+
+---
+
+### Phase 3: バグ修正・技術的負債（1週間）
+
+#### 5. TODOコメント解決
+- `agency-auth.js:38` の確認と修正
+
+#### 6. 重複import削除
+- `stripe-webhook.js` など
+
+#### 7. LINE公式URL検証
+- データベースの値を更新
+
+---
+
+## 7. テスト計画
+
+### 単体テスト
+
+#### Test Case 1: agency-commission-details API
+```bash
+# 準備: テストデータINSERT
+INSERT INTO agency_commission_distributions (...) VALUES (...);
+
+# テスト実行
+curl -X GET "http://localhost:8888/.netlify/functions/agency-commission-details" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Agency-Id: $AGENCY_ID"
+
+# 期待: 200 OK + JSON with commissionDetails
+```
+
+---
+
+### 統合テスト
+
+#### Scenario 1: コンバージョン → 報酬分配フロー
+1. Stripe Checkoutでテスト決済
+2. Webhookトリガー
+3. `agency_conversions` テーブル確認
+4. `agency_commission_distributions` テーブル確認
+5. 階層チェーンに応じた報酬分配を確認
 
 ---
 
 ## 8. まとめ
 
-### 実装済み機能（高評価ポイント）
-- ✅ 代理店認証・登録システム
-- ✅ トラッキングリンク管理
-- ✅ LINE連携
-- ✅ 訪問分析・コンバージョン記録
-- ✅ 基本的な報酬計算
-- ✅ 管理画面での代理店承認フロー
-- ✅ 4段階代理店制度のデータベース設計
+### ✅ 実装済み機能（高評価）
+- 代理店認証・登録システム
+- トラッキングリンク管理
+- 訪問分析・コンバージョン記録
+- 基本的な報酬計算（月次集計のみ）
+- 管理画面での代理店承認フロー
 
-### 未実装機能（改善が必要）
-- ❌ 4段階代理店制度のフロントエンド表示
-- ❌ 報酬分配の自動化
-- ❌ 階層情報APIとコミッション詳細API
+### ❌ 未実装機能（緊急対応必要）
+- **4段階代理店制度の報酬分配ロジック**
+- **コミッション詳細履歴API**
+- 階層情報API
 
-### ビジネスインパクト
-- **High**: 4段階代理店制度が完全稼働していないため、リファラル報酬が支払われていない可能性
-- **Medium**: 代理店が自分の子代理店を確認できないため、営業活動が制限される
-- **Low**: 管理者の運用負荷が高い（手動通知、手動集計）
+### 🐛 発見されたバグ
+1. TODO未解決（セキュリティ懸念）
+2. 重複import
+3. LINE公式URL検証ロジック
+
+### 📈 推奨アクション
+
+**Week 1-2**:
+- Stripe Webhook報酬分配実装
+- agency-commission-details API実装
+
+**Week 3**:
+- agency-referral-info API実装
+- バグ修正
+
+**Week 4**:
+- 管理画面階層ツリー表示
+- 統合テスト
 
 ---
 
-**調査担当**: Claude (Anthropic)
-**調査完了日**: 2025-10-25
+**次のステップ**: Phase 1 の実装から開始することを強く推奨します。
+
