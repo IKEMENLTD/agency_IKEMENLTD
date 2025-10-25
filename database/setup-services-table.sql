@@ -184,29 +184,45 @@ EXCEPTION
 END $$;
 
 -- 3-2. agency_tracking_linksの外部キー
+-- 注意: 既存の制約がある場合はスキップ（重複防止）
 DO $$
 BEGIN
-    ALTER TABLE agency_tracking_links
-    ADD CONSTRAINT fk_agency_tracking_links_service
-    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'agency_tracking_links' AND constraint_name = 'fk_agency_tracking_links_service'
+    ) THEN
+        ALTER TABLE agency_tracking_links
+        ADD CONSTRAINT fk_agency_tracking_links_service
+        FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL;
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$
 BEGIN
-    ALTER TABLE agency_tracking_links
-    ADD CONSTRAINT fk_agency_tracking_links_agency
-    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'agency_tracking_links' AND constraint_name = 'fk_agency_tracking_links_agency'
+    ) THEN
+        ALTER TABLE agency_tracking_links
+        ADD CONSTRAINT fk_agency_tracking_links_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$
 BEGIN
-    ALTER TABLE agency_tracking_links
-    ADD CONSTRAINT fk_agency_tracking_links_created_by
-    FOREIGN KEY (created_by) REFERENCES agency_users(id) ON DELETE SET NULL;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'agency_tracking_links' AND constraint_name = 'fk_agency_tracking_links_created_by'
+    ) THEN
+        ALTER TABLE agency_tracking_links
+        ADD CONSTRAINT fk_agency_tracking_links_created_by
+        FOREIGN KEY (created_by) REFERENCES agency_users(id) ON DELETE SET NULL;
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
@@ -241,11 +257,20 @@ EXCEPTION
 END $$;
 
 -- 3-5. agency_usersの外部キー
+-- 注意: agency_users_agency_id_fkey が既に存在する場合はスキップ
 DO $$
 BEGIN
-    ALTER TABLE agency_users
-    ADD CONSTRAINT fk_agency_users_agency
-    FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+    -- 既存の外部キー制約を確認
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE table_name = 'agency_users'
+          AND constraint_type = 'FOREIGN KEY'
+          AND constraint_name LIKE '%agency_id%'
+    ) THEN
+        ALTER TABLE agency_users
+        ADD CONSTRAINT fk_agency_users_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+    END IF;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
