@@ -68,11 +68,29 @@
 
 # Environment variables documentation
 # Add these to your Netlify environment variables:
+#
+# === Database (Required) ===
 # SUPABASE_URL=https://your-project.supabase.co
 # SUPABASE_ANON_KEY=your-anon-key
 # SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+#
+# === LINE Integration (Required) ===
 # LINE_CHANNEL_SECRET=your-line-channel-secret
 # LINE_CHANNEL_ACCESS_TOKEN=your-line-access-token
+#
+# === Authentication (Required) ===
+# JWT_SECRET=your-random-secret-key-min-32-characters
+# ADMIN_USERNAME=admin
+# ADMIN_PASSWORD_HASH=your-bcrypt-hash (use scripts/generate-admin-password-hash.js)
+#
+# === Rate Limiting (Highly Recommended for Production) ===
+# UPSTASH_REDIS_REST_URL=https://your-region-xxxxx.upstash.io
+# UPSTASH_REDIS_REST_TOKEN=your-upstash-token
+# See docs/REDIS_SETUP.md for setup instructions
+#
+# === Optional ===
+# SENDGRID_API_KEY=your-sendgrid-key (for password reset emails)
+# ALLOWED_ORIGINS=https://domain1.com,https://domain2.com (for CORS)
 
 # Build command optimization
 [build.processing]

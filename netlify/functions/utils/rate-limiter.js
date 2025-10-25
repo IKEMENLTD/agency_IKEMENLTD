@@ -1,14 +1,32 @@
 /**
- * シンプルなメモリベースのレート制限ユーティリティ
+ * レート制限ユーティリティ（自動切替）
  *
- * 注意: Netlify Functionsはサーバーレスのため、各リクエストが
- * 異なるインスタンスで実行される可能性があります。
- * より堅牢なレート制限には、Upstash Redis等の外部ストレージを推奨します。
+ * Redisが設定されている場合はRedisベースのレート制限を使用し、
+ * 設定されていない場合はメモリベースにフォールバックします。
  *
- * 本実装は基本的な保護を提供しますが、完全な防御には不十分です。
+ * 推奨: 本番環境ではUpstash Redisを使用してください
+ * セットアップ手順: docs/REDIS_SETUP.md を参照
+ *
+ * 環境変数:
+ * - UPSTASH_REDIS_REST_URL: Redis REST API URL（設定時にRedisベースに自動切替）
+ * - UPSTASH_REDIS_REST_TOKEN: Redis認証トークン
  */
 
 const logger = require('./logger');
+
+// Redis版が利用可能かチェック
+let useRedis = false;
+try {
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+        useRedis = true;
+        logger.log('🔄 Rate limiter: Using Redis-based implementation');
+    } else {
+        logger.warn('⚠️  Rate limiter: Using memory-based implementation (not recommended for production)');
+        logger.warn('⚠️  See docs/REDIS_SETUP.md for Redis setup instructions');
+    }
+} catch (error) {
+    logger.warn('⚠️  Rate limiter: Falling back to memory-based implementation');
+}
 
 // メモリベースのレート制限ストア
 const rateLimitStore = new Map();
@@ -121,11 +139,19 @@ function createRateLimitResponse(retryAfter) {
 
 /**
  * Netlify Functionにレート制限を適用（ミドルウェア風）
+ * 自動的にRedisまたはメモリベースを選択
  * @param {Object} event - Netlify Function event
  * @param {Object} options - レート制限オプション
- * @returns {Object|null} レート制限エラーレスポンス、または null（許可）
+ * @returns {Promise<Object|null>|Object|null} レート制限エラーレスポンス、または null（許可）
  */
 function applyRateLimit(event, options = {}) {
+    // Redisが利用可能な場合はRedis版を使用
+    if (useRedis) {
+        const redisLimiter = require('./rate-limiter-redis');
+        return redisLimiter.applyRateLimit(event, options);
+    }
+
+    // メモリベースのフォールバック
     const ip = getClientIp(event);
     const endpoint = event.path || 'unknown';
     const identifier = `${ip}:${endpoint}`;
