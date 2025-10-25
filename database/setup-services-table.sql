@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS services (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     domain VARCHAR(255),
+    line_official_url TEXT,  -- LINE公式アカウント友達追加URL
+    app_redirect_url TEXT,   -- アプリへのリダイレクトURL（任意）
     default_commission_rate NUMERIC(5,2) DEFAULT 20.00,  -- 基本統括報酬率: 粗利の20%
     default_referral_rate NUMERIC(5,2) DEFAULT 0.00,
     subscription_price NUMERIC(10,2),
@@ -76,6 +78,15 @@ ADD COLUMN IF NOT EXISTS tracking_code VARCHAR(50);
 
 ALTER TABLE agency_tracking_links
 ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+
+ALTER TABLE agency_tracking_links
+ADD COLUMN IF NOT EXISTS created_by UUID;
+
+ALTER TABLE agency_tracking_links
+ADD COLUMN IF NOT EXISTS line_friend_url TEXT;
+
+ALTER TABLE agency_tracking_links
+ADD COLUMN IF NOT EXISTS destination_url TEXT;
 
 -- 2-2. tracking_codeにUNIQUE制約を追加
 DO $$
@@ -142,6 +153,13 @@ ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE agency_users
 ADD COLUMN IF NOT EXISTS name VARCHAR(255);
 
+-- 2-7. servicesテーブルにカラムを追加（既存テーブルの場合）
+ALTER TABLE services
+ADD COLUMN IF NOT EXISTS line_official_url TEXT;
+
+ALTER TABLE services
+ADD COLUMN IF NOT EXISTS app_redirect_url TEXT;
+
 -- ================================================================
 -- STEP 3: 外部キー制約の追加
 -- ================================================================
@@ -180,6 +198,15 @@ BEGIN
     ALTER TABLE agency_tracking_links
     ADD CONSTRAINT fk_agency_tracking_links_agency
     FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE;
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE agency_tracking_links
+    ADD CONSTRAINT fk_agency_tracking_links_created_by
+    FOREIGN KEY (created_by) REFERENCES agency_users(id) ON DELETE SET NULL;
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
@@ -246,12 +273,14 @@ CREATE INDEX IF NOT EXISTS idx_agency_commissions_agency_id ON agency_commission
 DELETE FROM services WHERE name IN ('TaskMate AI', 'LiteWEB+');
 
 -- 5-2. 新しいデータを挿入
-INSERT INTO services (name, description, domain, default_commission_rate, default_referral_rate, subscription_price, status)
+INSERT INTO services (name, description, domain, line_official_url, app_redirect_url, default_commission_rate, default_referral_rate, subscription_price, status)
 VALUES
     (
         'TaskMate AI',
         'LINE上でコード生成ができるAIアシスタント',
         'taskmateai.net',
+        'https://line.me/R/ti/p/@taskmateai',  -- ⚠️ 実際のLINE URLに置き換えてください
+        'https://liff.line.me/2006603169-QEmPo1ba',  -- ⚠️ 実際のLIFF URLに置き換えてください
         20.00,  -- 粗利の20%
         0.00,
         2980,
@@ -261,6 +290,8 @@ VALUES
         'LiteWEB+',
         'ノーコードWebサイト作成サービス',
         'liteweb.plus',
+        'https://line.me/R/ti/p/@litewebplus',  -- ⚠️ 実際のLINE URLに置き換えてください
+        NULL,  -- LiteWEB+はLINEのみの場合
         20.00,  -- 粗利の20%
         0.00,
         4980,

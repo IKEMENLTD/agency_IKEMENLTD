@@ -299,6 +299,7 @@ function agencyDashboard() {
 
                 const result = await response.json();
                 console.log('API応答データ:', result);
+                console.log('API応答データ（詳細）:', JSON.stringify(result, null, 2));
 
                 if (response.ok && result.success) {
                     console.log('✅ ログイン成功');

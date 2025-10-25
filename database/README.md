@@ -28,9 +28,11 @@ cat database/setup-services-table.sql
 **このスクリプトは以下を実行します:**
 - ✅ `services` テーブルの作成
 - ✅ `agency_service_settings` テーブルの作成
-- ✅ `agency_tracking_links` に必要なカラムを追加
+- ✅ `agency_tracking_links` に必要なカラムを追加（service_id, created_by, line_friend_url, destination_url等）
 - ✅ 初期サービスデータの投入（TaskMate AI, LiteWEB+）
 - ✅ インデックスの作成
+
+**⚠️ 重要:** スクリプト実行前に、各サービスの **LINE公式アカウントURL** を確認して、SQLファイルを編集してください。
 
 ### 3. 実行結果の確認
 
@@ -89,18 +91,20 @@ WHERE status = 'active';
 
 サービスのマスターデータを管理します。
 
-| カラム名                 | データ型    | 説明                    |
-|------------------------|-----------|------------------------|
-| id                     | UUID      | サービスID（主キー）      |
-| name                   | VARCHAR   | サービス名（一意）        |
-| description            | TEXT      | サービス説明             |
-| domain                 | VARCHAR   | ドメイン名              |
-| default_commission_rate| NUMERIC   | デフォルト報酬率（20%）   |
-| default_referral_rate  | NUMERIC   | デフォルト紹介率（0%）    |
-| subscription_price     | NUMERIC   | 月額料金                |
-| status                 | VARCHAR   | ステータス（active/inactive）|
-| created_at             | TIMESTAMP | 作成日時                |
-| updated_at             | TIMESTAMP | 更新日時                |
+| カラム名                 | データ型    | 説明                          |
+|------------------------|-----------|------------------------------|
+| id                     | UUID      | サービスID（主キー）            |
+| name                   | VARCHAR   | サービス名（一意）              |
+| description            | TEXT      | サービス説明                   |
+| domain                 | VARCHAR   | ドメイン名                    |
+| line_official_url      | TEXT      | LINE公式アカウント友達追加URL    |
+| app_redirect_url       | TEXT      | アプリへのリダイレクトURL（任意）|
+| default_commission_rate| NUMERIC   | デフォルト報酬率（20%）         |
+| default_referral_rate  | NUMERIC   | デフォルト紹介率（0%）          |
+| subscription_price     | NUMERIC   | 月額料金                      |
+| status                 | VARCHAR   | ステータス（active/inactive）  |
+| created_at             | TIMESTAMP | 作成日時                      |
+| updated_at             | TIMESTAMP | 更新日時                      |
 
 ### `agency_service_settings` テーブル
 
