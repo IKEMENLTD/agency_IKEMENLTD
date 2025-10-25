@@ -1,5 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const crypto = require('crypto');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Initialize Supabase client with SERVICE_ROLE_KEY
 // IMPORTANT: Webhooks are server-side operations that need full database access
@@ -19,7 +21,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Access-Control-Allow-Headers': 'Content-Type, X-Line-Signature',
                 'Access-Control-Allow-Methods': 'POST'
             }

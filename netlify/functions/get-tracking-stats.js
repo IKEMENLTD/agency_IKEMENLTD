@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -12,7 +13,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
             }
@@ -24,7 +25,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 405,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ error: 'Method not allowed' })
@@ -52,7 +53,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 500,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -99,7 +100,7 @@ async function getOverallStats() {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -143,7 +144,7 @@ async function getTrackingLinks() {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -180,7 +181,7 @@ async function getVisits() {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -232,7 +233,7 @@ async function getLineUsers() {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({

@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -12,7 +13,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
             }
@@ -24,7 +25,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 405,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ error: 'Method not allowed' })
@@ -39,7 +40,7 @@ exports.handler = async (event, context) => {
             return {
                 statusCode: 400,
                 headers: {
-                    'Access-Control-Allow-Origin': '*',
+                    // Secure CORS - see getCorsHeaders(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -60,7 +61,7 @@ exports.handler = async (event, context) => {
             return {
                 statusCode: 404,
                 headers: {
-                    'Access-Control-Allow-Origin': '*',
+                    // Secure CORS - see getCorsHeaders(),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -134,7 +135,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 200,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json',
                 'Set-Cookie': `tracking_session=${JSON.stringify(sessionData)}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=3600`
             },
@@ -158,7 +159,7 @@ exports.handler = async (event, context) => {
         return {
             statusCode: 500,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                // Secure CORS - see getCorsHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({

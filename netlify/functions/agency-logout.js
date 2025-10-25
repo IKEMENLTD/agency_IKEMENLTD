@@ -1,9 +1,10 @@
 const { getSecureCookieOptions } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 exports.handler = async (event) => {
     // CORS headers
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
+    const headers = getCorsHeaders(event, {
+        // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Credentials': 'true'

@@ -1,17 +1,23 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const jwt = require('jsonwebtoken');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const bcrypt = require('bcryptjs');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const headers = {
-    'Access-Control-Allow-Origin': '*',
+const headers = getCorsHeaders(event, {
+    // Secure CORS - see getCorsHeaders(),
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agency-Id',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Content-Type': 'application/json',

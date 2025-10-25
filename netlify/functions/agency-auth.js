@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 const { validateCsrfProtection, createCsrfErrorResponse, getSecureCookieOptions } = require('./utils/csrf-protection');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
 
 const supabase = createClient(
@@ -11,20 +12,12 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
-    // CORS headers
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'X-Content-Type-Options': 'nosniff'
-    };
+    // セキュアなCORSヘッダー（特定ドメインのみ許可）
+    const headers = getCorsHeaders(event);
 
+    // プリフライトリクエスト処理
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers,
-            body: ''
-        };
+        return handleCorsPreflightRequest(event);
     }
 
     if (event.httpMethod !== 'POST') {

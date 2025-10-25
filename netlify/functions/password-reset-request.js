@@ -1,8 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const crypto = require('crypto');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -11,11 +16,12 @@ const supabase = createClient(
 
 // SendGridを使う場合（オプション）
 // const sgMail = require('@sendgrid/mail');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 exports.handler = async (event) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
+    const headers = getCorsHeaders(event, {
+        // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
     };
@@ -121,6 +127,7 @@ exports.handler = async (event) => {
         // メール送信オプション1: SendGrid（要設定）
         if (process.env.SENDGRID_API_KEY) {
             const sgMail = require('@sendgrid/mail');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
             sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
             const msg = {

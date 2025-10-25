@@ -1,9 +1,15 @@
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const bcrypt = require('bcryptjs');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const crypto = require('crypto');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -11,8 +17,8 @@ const supabase = createClient(
 );
 
 exports.handler = async (event) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
+    const headers = getCorsHeaders(event, {
+        // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
     };

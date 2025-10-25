@@ -1,8 +1,13 @@
 const bcrypt = require('bcryptjs');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { createClient } = require('@supabase/supabase-js');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Check environment variables
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -25,13 +30,14 @@ function generateAgencyCode() {
 // Generate registration token for LINE verification
 function generateRegistrationToken() {
     const crypto = require('crypto');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
     return crypto.randomBytes(32).toString('hex');
 }
 
 exports.handler = async (event) => {
     // CORS headers
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
+    const headers = getCorsHeaders(event, {
+        // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'X-Content-Type-Options': 'nosniff'
