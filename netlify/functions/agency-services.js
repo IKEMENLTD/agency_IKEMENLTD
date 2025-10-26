@@ -4,7 +4,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const jwt = require('jsonwebtoken');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

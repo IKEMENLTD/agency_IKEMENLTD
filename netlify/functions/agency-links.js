@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { createClient } = require('@supabase/supabase-js');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -14,7 +13,7 @@ exports.handler = async (event) => {
         // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agency-Id',
         'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS'
-    };
+    });
 
     if (event.httpMethod === 'OPTIONS') {
         return {

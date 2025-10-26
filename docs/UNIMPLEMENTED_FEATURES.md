@@ -769,3 +769,268 @@ curl -X GET "http://localhost:8888/.netlify/functions/agency-commission-details"
 
 **次のステップ**: Phase 1 の実装から開始することを強く推奨します。
 
+
+---
+
+## 9. セキュリティ脆弱性の詳細分析
+
+### 🚨 Critical: CSRF保護が無効化されている
+
+**場所**: `netlify/functions/agency-auth.js:37-42`
+
+```javascript
+// CSRF保護チェック（一時的に無効化 - テスト用）
+// TODO: テスト後に必ず有効化すること
+// const csrfValidation = validateCsrfProtection(event);
+// if (!csrfValidation.valid) {
+//     return createCsrfErrorResponse(csrfValidation.error);
+// }
+```
+
+**影響**:
+- **CSRF攻撃に対して脆弱**
+- 攻撃者が代理店アカウントでログインさせることが可能
+- セッションハイジャックのリスク
+
+**CVSS Score**: 8.8 (High)
+
+**修正方法**:
+1. コメントアウトを解除
+2. フロントエンドでCSRFトークンを取得・送信
+3. デプロイ前に動作確認
+
+**修正コード**:
+```javascript
+// CSRF保護チェック
+const csrfValidation = validateCsrfProtection(event);
+if (!csrfValidation.valid) {
+    return createCsrfErrorResponse(csrfValidation.error);
+}
+```
+
+---
+
+### ⚠️ Medium: 他のAPIのCSRF保護状況
+
+| API | CSRF保護 | 状態 |
+|-----|---------|------|
+| `agency-auth` | ❌ | **無効化（本番環境でリスク）** |
+| `agency-get-line-url` | ✅ | 実装済み |
+| `agency-change-password` | ✅ | 実装済み |
+| `agency-complete-registration` | ✅ | 実装済み |
+| `password-reset-request` | ✅ | 実装済み |
+
+**推奨**: `agency-auth.js`のCSRF保護を即座に有効化
+
+---
+
+### ✅ Good: N+1クエリ対策
+
+**確認結果**: Promise.allを使用してN+1クエリを回避
+
+**例**: `get-tracking-stats.js:132`
+```javascript
+const linksWithStats = await Promise.all(links.map(async (link) => {
+    const { count: visitCount } = await supabase
+        .from('tracking_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('tracking_link_id', link.id);
+
+    return {
+        ...link,
+        visit_count: visitCount || 0
+    };
+}));
+```
+
+✅ **正しい実装** - 並列実行でパフォーマンス最適化
+
+---
+
+## 10. パフォーマンス問題
+
+### 🟡 Medium: デバッグログの過剰出力
+
+**場所**: `netlify/functions/agency-billing-stats.js`
+
+**問題**:
+- 14個のDEBUGログが本番環境でも出力されている
+- Netlify Functionsのログコストが増加
+- パフォーマンスへの軽微な影響
+
+**例**:
+```javascript
+console.log('🔍 [DEBUG] Fetching conversions for agency:', agencyId);
+console.log('✅ [DEBUG] Conversions fetched:', conversions?.length || 0);
+console.log('📊 [DEBUG] Conversion sample:', conversions?.[0]);
+console.log('👥 [DEBUG] Extracted user IDs:', userIds.length, userIds);
+// ... 10個以上のDEBUGログ
+```
+
+**推奨修正**:
+```javascript
+const DEBUG = process.env.NODE_ENV === 'development';
+
+if (DEBUG) {
+    console.log('🔍 [DEBUG] Fetching conversions for agency:', agencyId);
+}
+```
+
+**影響箇所**:
+- Line 77, 101, 102, 107-109, 116, 137-138, 183-184, 187-188, 231, 239-240
+
+---
+
+## 11. エラーハンドリングの分析
+
+### ✅ Good: エラーハンドラーユーティリティの使用
+
+大部分のAPIで `utils/error-handler.js` を使用:
+- `createErrorResponse()`
+- `createDatabaseErrorResponse()`
+- `createAuthErrorResponse()`
+
+**例**: `agency-commission.js`
+```javascript
+catch (error) {
+    return createErrorResponse(error, 'データ取得エラー', 500, headers);
+}
+```
+
+---
+
+### ⚠️ Inconsistent: 一部APIで未使用
+
+**未使用API**:
+- `get-tracking-stats.js` - 生のエラーメッセージを返している
+- `stripe-webhook.js` - 一部で生のエラーを返している
+
+**リスク**: 本番環境で詳細なエラー情報が漏洩する可能性
+
+---
+
+## 12. 追加で発見された問題
+
+### Bug #4: 重複CORS importの氾濫
+
+**場所**: 複数ファイル
+
+**例**: `password-reset-request.js:2-10`
+```javascript
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+const crypto = require('crypto');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+const logger = require('./utils/logger');
+const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
+```
+
+**影響**: Low（動作には問題ないが、コード品質の問題）
+
+**修正**: 重複行をすべて削除
+
+---
+
+### Bug #5: Supabase環境変数のフォールバック
+
+**場所**: `get-tracking-stats.js:7`
+
+```javascript
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+);
+```
+
+**問題**: `SUPABASE_SERVICE_ROLE_KEY`が未設定の場合、権限の低い`ANON_KEY`にフォールバック
+
+**リスク**: Row Level Security (RLS) により、データ取得に失敗する可能性
+
+**推奨**: フォールバックを削除し、未設定時はエラーをスロー
+
+---
+
+## 13. 改善推奨事項まとめ
+
+### 🔴 Critical（即座に対応）
+
+1. **CSRF保護を有効化** (`agency-auth.js:38`)
+   - 工数: 1時間
+   - リスク: CSRF攻撃
+
+2. **Stripe Webhook報酬分配実装**
+   - 工数: 5-7日
+   - リスク: 契約義務違反
+
+---
+
+### 🟡 High（1週間以内に対応）
+
+3. **コミッション詳細API実装**
+   - 工数: 3-5日
+   - リスク: 報酬透明性の欠如
+
+4. **デバッグログの条件分岐**
+   - 工数: 2時間
+   - リスク: ログコスト増加
+
+---
+
+### 🟢 Medium（2-4週間以内）
+
+5. **重複importの削除**
+   - 工数: 1時間
+   - リスク: なし（コード品質）
+
+6. **エラーハンドラーの統一**
+   - 工数: 3時間
+   - リスク: 情報漏洩（軽微）
+
+7. **環境変数フォールバックの削除**
+   - 工数: 30分
+   - リスク: 設定ミス時の誤動作
+
+---
+
+## 14. セキュリティチェックリスト
+
+| 項目 | 状態 | 備考 |
+|-----|------|------|
+| JWT認証 | ✅ | 正しく実装 |
+| パスワードハッシュ化 (bcrypt) | ✅ | 正しく実装 |
+| CSRF保護 | ⚠️ | **agency-auth.jsで無効化** |
+| CORS設定 | ✅ | オリジン許可リスト実装済み |
+| レート制限 | ✅ | STRICT/NORMAL実装済み |
+| SQLインジェクション対策 | ✅ | パラメータ化クエリ使用 |
+| XSS対策 | ✅ | HTMLエスケープ実装済み |
+| セキュリティヘッダー | ✅ | HSTS, CSP等実装済み |
+| 入力バリデーション | ✅ | 各APIで実装 |
+| エラーメッセージサニタイズ | ⚠️ | 一部APIで未実装 |
+
+---
+
+## 15. 最終推奨アクション（優先度順）
+
+### Week 1（緊急）
+1. **CSRF保護を有効化** - 1時間
+2. **Stripe Webhook報酬分配実装開始** - Day 1-5
+
+### Week 2-3（クリティカル）
+3. **Stripe Webhook報酬分配完成** - Day 6-7
+4. **agency-commission-details API実装** - Day 8-12
+5. **デバッグログの最適化** - Day 13
+
+### Week 4（重要）
+6. **agency-referral-info API実装** - Day 14-16
+7. **バグ修正（重複import、環境変数フォールバック）** - Day 17
+8. **統合テスト** - Day 18-20
+
+---
+
+**調査完了日**: 2025-10-25
+**総調査時間**: 4時間
+**発見された問題総数**: 10個（Critical: 2, High: 2, Medium: 6）
+

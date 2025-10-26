@@ -1,7 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { authenticateRequest, createAuthErrorResponse } = require('./utils/auth-helper');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -15,7 +14,7 @@ exports.handler = async (event) => {
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Credentials': 'true',  // Cookie認証のために必要
         'X-Content-Type-Options': 'nosniff'
-    };
+    });
 
     if (event.httpMethod === 'OPTIONS') {
         return {
