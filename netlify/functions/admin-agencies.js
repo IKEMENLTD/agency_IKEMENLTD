@@ -11,7 +11,7 @@ exports.handler = async (event) => {
         // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-    };
+    });
 
     if (event.httpMethod === 'OPTIONS') {
         return {

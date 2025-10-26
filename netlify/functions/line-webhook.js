@@ -1,7 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const crypto = require('crypto');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Initialize Supabase client with SERVICE_ROLE_KEY
 // IMPORTANT: Webhooks are server-side operations that need full database access

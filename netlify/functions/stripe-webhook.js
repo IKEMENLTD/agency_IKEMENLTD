@@ -1,7 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { createClient } = require('@supabase/supabase-js');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -13,7 +12,7 @@ exports.handler = async (event) => {
         // Secure CORS - see getCorsHeaders(),
         'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
         'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    };
+    });
 
     if (event.httpMethod === 'OPTIONS') {
         return {

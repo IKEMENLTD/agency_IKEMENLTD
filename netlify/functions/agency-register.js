@@ -1,13 +1,9 @@
 const bcrypt = require('bcryptjs');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { createClient } = require('@supabase/supabase-js');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { validateCsrfProtection, createCsrfErrorResponse } = require('./utils/csrf-protection');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { applyRateLimit, STRICT_RATE_LIMIT } = require('./utils/rate-limiter');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const logger = require('./utils/logger');
-const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 
 // Check environment variables
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
