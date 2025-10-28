@@ -1142,7 +1142,7 @@
                                         :disabled="generatingInvoice"
                                         class="bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg">
                                     <i class="fas fa-file-invoice text-sm sm:mr-2" :class="{ 'fa-spin': generatingInvoice }"></i>
-                                    <span class="hidden sm:inline" x-text="generatingInvoice ? '生成中...' : '当月請求書発行'"></span>
+                                    <span class="hidden sm:inline" x-text="generatingInvoice ? '生成中...' : '当月支払明細書発行'"></span>
                                 </button>
                             </div>
                             <!-- 成功・エラーメッセージ -->
@@ -1193,16 +1193,16 @@
                         </div>
                     </div>
 
-                    <!-- 請求書一覧 -->
+                    <!-- 支払明細書一覧 -->
                     <div class="bg-white rounded-lg border border-cyan-200 mt-8">
                         <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-cyan-100 bg-gradient-to-r from-cyan-50 to-blue-50">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <h3 class="text-sm sm:text-base md:text-lg font-semibold text-gray-900">
                                         <i class="fas fa-file-invoice-dollar text-cyan-600 mr-1 sm:mr-2 text-xs sm:text-sm"></i>
-                                        請求書一覧
+                                        支払明細書一覧
                                     </h3>
-                                    <p class="text-[10px] sm:text-xs text-gray-600 mt-1">発行済みの請求書とPDFダウンロード</p>
+                                    <p class="text-[10px] sm:text-xs text-gray-600 mt-1">発行済みの支払明細書とPDFダウンロード</p>
                                 </div>
                                 <button @click="loadInvoices()"
                                         class="bg-cyan-600 hover:bg-cyan-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded text-xs sm:text-sm transition-colors">
@@ -1214,15 +1214,15 @@
                             <template x-if="invoices.length === 0">
                                 <div class="p-12 text-center">
                                     <i class="fas fa-file-invoice text-5xl text-gray-300 mb-4"></i>
-                                    <p class="text-gray-600">請求書が発行されていません</p>
-                                    <p class="text-sm text-gray-500 mt-2">「当月請求書発行」ボタンから請求書を作成できます</p>
+                                    <p class="text-gray-600">支払明細書が発行されていません</p>
+                                    <p class="text-sm text-gray-500 mt-2">「当月支払明細書発行」ボタンから作成できます</p>
                                 </div>
                             </template>
                             <template x-if="invoices.length > 0">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">請求書番号</th>
+                                            <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">明細書番号</th>
                                             <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">発行日</th>
                                             <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">対象期間</th>
                                             <th class="px-3 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase whitespace-nowrap">金額</th>

@@ -100,7 +100,7 @@ exports.handler = async (event) => {
             headers: {
                 ...headers,
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="invoice_${invoice.invoice_number}.pdf"`
+                'Content-Disposition': `attachment; filename="payment_statement_${invoice.invoice_number}.pdf"`
             },
             body: pdfBuffer.toString('base64'),
             isBase64Encoded: true
@@ -150,12 +150,12 @@ async function generateInvoicePDF(invoice, items) {
             }
 
             // ヘッダー
-            doc.fontSize(24).text('請求書', { align: 'center' });
+            doc.fontSize(24).text('支払明細書', { align: 'center' });
             doc.moveDown();
 
-            // 請求書番号・日付
+            // 明細書番号・日付
             doc.fontSize(10);
-            doc.text(`請求書番号: ${invoice.invoice_number}`, { align: 'right' });
+            doc.text(`明細書番号: ${invoice.invoice_number}`, { align: 'right' });
             doc.text(`発行日: ${formatDate(invoice.invoice_date)}`, { align: 'right' });
             doc.text(`お支払期限: ${formatDate(invoice.payment_due_date)}`, { align: 'right' });
             doc.moveDown(2);
@@ -167,10 +167,10 @@ async function generateInvoicePDF(invoice, items) {
             // 発行元情報
             doc.fontSize(10);
             doc.text('発行元:', { continued: false });
-            doc.text('TaskMate AI');
+            doc.text('株式会社イケメン');
             doc.text('〒XXX-XXXX 東京都XXX区XXX');
             doc.text('電話: 03-XXXX-XXXX');
-            doc.text('Email: billing@taskmateai.net');
+            doc.text('Email: info@agency.ikemen.ltd');
 
             if (invoice.is_qualified_invoice && invoice.agency_invoice_registration_number) {
                 doc.text(`登録番号: ${invoice.agency_invoice_registration_number}`);
@@ -240,7 +240,7 @@ async function generateInvoicePDF(invoice, items) {
             // フッター
             doc.fontSize(8);
             doc.text(
-                '※ 本請求書は電子帳簿保存法に基づき7年間保存されます。',
+                '※ 本支払明細書は電子帳簿保存法に基づき7年間保存されます。',
                 50,
                 750,
                 { align: 'center' }

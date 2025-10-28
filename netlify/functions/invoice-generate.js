@@ -315,12 +315,12 @@ async function generateInvoicePDF(invoice, items, agency) {
             }
 
             // ヘッダー
-            doc.fontSize(24).text('請求書', { align: 'center' });
+            doc.fontSize(24).text('支払明細書', { align: 'center' });
             doc.moveDown();
 
-            // 請求書番号・日付
+            // 明細書番号・日付
             doc.fontSize(10);
-            doc.text(`請求書番号: ${invoice.invoice_number}`, { align: 'right' });
+            doc.text(`明細書番号: ${invoice.invoice_number}`, { align: 'right' });
             doc.text(`発行日: ${formatDate(invoice.invoice_date)}`, { align: 'right' });
             doc.text(`お支払期限: ${formatDate(invoice.payment_due_date)}`, { align: 'right' });
             doc.moveDown(2);
@@ -329,13 +329,13 @@ async function generateInvoicePDF(invoice, items, agency) {
             doc.fontSize(12).text(`${invoice.agency_name} 御中`, { align: 'left' });
             doc.moveDown();
 
-            // 発行元情報（TaskMate AI）
+            // 発行元情報（株式会社イケメン）
             doc.fontSize(10);
             doc.text('発行元:', { continued: false });
-            doc.text('TaskMate AI');
+            doc.text('株式会社イケメン');
             doc.text('〒XXX-XXXX 東京都XXX区XXX');
             doc.text('電話: 03-XXXX-XXXX');
-            doc.text('Email: billing@taskmateai.net');
+            doc.text('Email: info@agency.ikemen.ltd');
 
             if (invoice.is_qualified_invoice && invoice.agency_invoice_registration_number) {
                 doc.text(`登録番号: ${invoice.agency_invoice_registration_number}`);
@@ -405,7 +405,7 @@ async function generateInvoicePDF(invoice, items, agency) {
             // フッター
             doc.fontSize(8);
             doc.text(
-                '※ 本請求書は電子帳簿保存法に基づき7年間保存されます。',
+                '※ 本支払明細書は電子帳簿保存法に基づき7年間保存されます。',
                 50,
                 750,
                 { align: 'center' }
@@ -424,31 +424,31 @@ async function sendInvoiceEmail(recipientEmail, agencyName, invoiceNumber, pdfBa
         const msg = {
             to: recipientEmail,
             from: {
-                email: process.env.SENDGRID_FROM_EMAIL || 'noreply@taskmateai.net',
-                name: 'TaskMate AI 経理部'
+                email: process.env.SENDGRID_FROM_EMAIL || 'info@agency.ikemen.ltd',
+                name: '株式会社イケメン'
             },
-            subject: `【TaskMate AI】請求書発行のお知らせ（${invoiceNumber}）`,
+            subject: `【株式会社イケメン】支払明細書発行のお知らせ（${invoiceNumber}）`,
             text: `
 ${agencyName} 様
 
 いつもお世話になっております。
-TaskMate AI 経理部です。
+株式会社イケメンです。
 
-${invoiceNumber} の請求書を発行いたしましたので、添付のPDFファイルをご確認ください。
+${invoiceNumber} の支払明細書を発行いたしましたので、添付のPDFファイルをご確認ください。
 
 お支払期限までにお振込みをお願いいたします。
 
 ご不明な点がございましたら、お気軽にお問い合わせください。
 
 ────────────────
-TaskMate AI 経理部
-Email: billing@taskmateai.net
+株式会社イケメン
+Email: info@agency.ikemen.ltd
 ────────────────
             `,
             attachments: [
                 {
                     content: pdfBase64,
-                    filename: `invoice_${invoiceNumber}.pdf`,
+                    filename: `payment_statement_${invoiceNumber}.pdf`,
                     type: 'application/pdf',
                     disposition: 'attachment'
                 }

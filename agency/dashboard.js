@@ -934,7 +934,7 @@ function agencyDashboard() {
         async generateInvoice() {
             if (this.generatingInvoice) return;
 
-            console.log('🧾 請求書生成開始');
+            console.log('🧾 支払明細書生成開始');
 
             // 当月の期間を計算
             const now = new Date();
@@ -947,7 +947,7 @@ function agencyDashboard() {
 
             console.log('📅 対象期間:', formatDate(periodStart), '~', formatDate(periodEnd));
 
-            if (!confirm('当月分の請求書を発行しますか？\nメールでPDFが送信されます。')) {
+            if (!confirm('当月分の支払明細書を発行しますか？\ninfo@agency.ikemen.ltd からメールでPDFが送信されます。')) {
                 console.log('❌ ユーザーがキャンセルしました');
                 return;
             }
@@ -981,15 +981,15 @@ function agencyDashboard() {
                 console.log('📦 レスポンスデータ:', data);
 
                 if (response.ok && data.success) {
-                    console.log('✅ 請求書生成成功!');
-                    console.log('📄 請求書番号:', data.invoice.invoice_number);
+                    console.log('✅ 支払明細書生成成功!');
+                    console.log('📄 明細書番号:', data.invoice.invoice_number);
                     console.log('💰 合計金額:', data.invoice.total_amount);
                     console.log('📧 メール送信:', data.email.success ? '成功' : '失敗');
 
-                    this.invoiceSuccess = `請求書 ${data.invoice.invoice_number} を発行しました！メールを確認してください。`;
+                    this.invoiceSuccess = `支払明細書 ${data.invoice.invoice_number} を発行しました！info@agency.ikemen.ltd からメールを確認してください。`;
 
                     // 請求書一覧を再読み込み
-                    console.log('🔄 請求書一覧を再読み込み中...');
+                    console.log('🔄 支払明細書一覧を再読み込み中...');
                     await this.loadInvoices();
 
                     // コミッション一覧も再読み込み
@@ -998,17 +998,17 @@ function agencyDashboard() {
 
                     console.log('✅ すべての処理が完了しました');
                 } else {
-                    console.error('❌ 請求書生成失敗:', data.error);
-                    this.invoiceError = data.error || '請求書の生成に失敗しました';
+                    console.error('❌ 支払明細書生成失敗:', data.error);
+                    this.invoiceError = data.error || '支払明細書の生成に失敗しました';
                 }
             } catch (error) {
-                console.error('❌ 請求書生成エラー:', error);
+                console.error('❌ 支払明細書生成エラー:', error);
                 console.error('エラー詳細:', error.message);
                 console.error('スタック:', error.stack);
-                this.invoiceError = '請求書の生成に失敗しました: ' + error.message;
+                this.invoiceError = '支払明細書の生成に失敗しました: ' + error.message;
             } finally {
                 this.generatingInvoice = false;
-                console.log('🏁 請求書生成処理終了');
+                console.log('🏁 支払明細書生成処理終了');
             }
         },
 
