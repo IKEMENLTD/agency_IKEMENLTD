@@ -934,6 +934,8 @@ function agencyDashboard() {
         async generateInvoice() {
             if (this.generatingInvoice) return;
 
+            console.log('🧾 請求書生成開始');
+
             // 当月の期間を計算
             const now = new Date();
             const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -943,7 +945,10 @@ function agencyDashboard() {
                 return date.toISOString().split('T')[0];
             };
 
+            console.log('📅 対象期間:', formatDate(periodStart), '~', formatDate(periodEnd));
+
             if (!confirm('当月分の請求書を発行しますか？\nメールでPDFが送信されます。')) {
+                console.log('❌ ユーザーがキャンセルしました');
                 return;
             }
 
@@ -951,7 +956,15 @@ function agencyDashboard() {
             this.invoiceError = '';
             this.invoiceSuccess = '';
 
+            console.log('📤 APIリクエスト送信中...');
+
             try {
+                const requestBody = {
+                    period_start: formatDate(periodStart),
+                    period_end: formatDate(periodEnd)
+                };
+                console.log('📋 リクエストボディ:', requestBody);
+
                 const response = await fetch('/.netlify/functions/invoice-generate', {
                     method: 'POST',
                     headers: {
@@ -959,33 +972,49 @@ function agencyDashboard() {
                         'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
                         'X-Agency-Id': localStorage.getItem('agencyId')
                     },
-                    body: JSON.stringify({
-                        period_start: formatDate(periodStart),
-                        period_end: formatDate(periodEnd)
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
+                console.log('📥 APIレスポンス:', response.status, response.statusText);
+
                 const data = await response.json();
+                console.log('📦 レスポンスデータ:', data);
 
                 if (response.ok && data.success) {
+                    console.log('✅ 請求書生成成功!');
+                    console.log('📄 請求書番号:', data.invoice.invoice_number);
+                    console.log('💰 合計金額:', data.invoice.total_amount);
+                    console.log('📧 メール送信:', data.email.success ? '成功' : '失敗');
+
                     this.invoiceSuccess = `請求書 ${data.invoice.invoice_number} を発行しました！メールを確認してください。`;
+
                     // 請求書一覧を再読み込み
+                    console.log('🔄 請求書一覧を再読み込み中...');
                     await this.loadInvoices();
+
                     // コミッション一覧も再読み込み
+                    console.log('🔄 コミッション一覧を再読み込み中...');
                     await this.loadCommissions();
+
+                    console.log('✅ すべての処理が完了しました');
                 } else {
+                    console.error('❌ 請求書生成失敗:', data.error);
                     this.invoiceError = data.error || '請求書の生成に失敗しました';
                 }
             } catch (error) {
-                console.error('Error generating invoice:', error);
+                console.error('❌ 請求書生成エラー:', error);
+                console.error('エラー詳細:', error.message);
+                console.error('スタック:', error.stack);
                 this.invoiceError = '請求書の生成に失敗しました: ' + error.message;
             } finally {
                 this.generatingInvoice = false;
+                console.log('🏁 請求書生成処理終了');
             }
         },
 
         // 請求書一覧取得
         async loadInvoices() {
+            console.log('📋 請求書一覧取得開始');
             try {
                 const response = await fetch('/.netlify/functions/invoice-list', {
                     headers: {
@@ -994,17 +1023,23 @@ function agencyDashboard() {
                     }
                 });
 
+                console.log('📥 請求書一覧レスポンス:', response.status);
+
                 if (response.ok) {
                     const data = await response.json();
                     this.invoices = data.invoices || [];
+                    console.log('✅ 請求書一覧取得成功:', this.invoices.length, '件');
+                } else {
+                    console.error('❌ 請求書一覧取得失敗:', response.status);
                 }
             } catch (error) {
-                console.error('Error loading invoices:', error);
+                console.error('❌ 請求書一覧取得エラー:', error);
             }
         },
 
         // PDF再ダウンロード
         async downloadInvoice(invoiceId, invoiceNumber) {
+            console.log('📥 PDFダウンロード開始:', invoiceNumber);
             try {
                 const response = await fetch(`/.netlify/functions/invoice-download?invoice_id=${invoiceId}`, {
                     headers: {
@@ -1013,8 +1048,12 @@ function agencyDashboard() {
                     }
                 });
 
+                console.log('📥 PDFダウンロードレスポンス:', response.status);
+
                 if (response.ok) {
                     const blob = await response.blob();
+                    console.log('📄 PDFサイズ:', (blob.size / 1024).toFixed(2), 'KB');
+
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -1023,18 +1062,24 @@ function agencyDashboard() {
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
+
+                    console.log('✅ PDFダウンロード成功');
                 } else {
+                    console.error('❌ PDFダウンロード失敗:', response.status);
                     alert('PDFのダウンロードに失敗しました');
                 }
             } catch (error) {
-                console.error('Error downloading invoice:', error);
+                console.error('❌ PDFダウンロードエラー:', error);
                 alert('PDFのダウンロードに失敗しました');
             }
         },
 
         // メール再送信
         async resendInvoiceEmail(invoiceId, invoiceNumber) {
+            console.log('📧 メール再送信:', invoiceNumber);
+
             if (!confirm(`請求書 ${invoiceNumber} をメールで再送信しますか？`)) {
+                console.log('❌ ユーザーがキャンセルしました');
                 return;
             }
 
@@ -1051,16 +1096,21 @@ function agencyDashboard() {
                     })
                 });
 
+                console.log('📥 メール再送信レスポンス:', response.status);
+
                 const data = await response.json();
+                console.log('📦 レスポンスデータ:', data);
 
                 if (response.ok && data.success) {
+                    console.log('✅ メール再送信成功');
                     alert('メールを再送信しました');
                     await this.loadInvoices();
                 } else {
+                    console.error('❌ メール再送信失敗:', data.error);
                     alert('メール送信に失敗しました: ' + (data.error || '不明なエラー'));
                 }
             } catch (error) {
-                console.error('Error resending invoice email:', error);
+                console.error('❌ メール再送信エラー:', error);
                 alert('メール送信に失敗しました');
             }
         },
