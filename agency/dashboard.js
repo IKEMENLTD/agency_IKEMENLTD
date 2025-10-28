@@ -97,6 +97,12 @@ function agencyDashboard() {
         },
         billingStatsInterval: null,
 
+        // Invoice data
+        invoices: [],
+        generatingInvoice: false,
+        invoiceError: '',
+        invoiceSuccess: '',
+
         // Referral users (from child agencies)
         referralUsers: [],
         referralSummary: {
@@ -731,11 +737,13 @@ function agencyDashboard() {
         async loadDashboardData() {
             console.log('📊 loadDashboardData() started');
             try {
-                console.log('📥 Loading stats, services, and tracking links in parallel...');
+                console.log('📥 Loading stats, services, tracking links, commissions, and invoices in parallel...');
                 await Promise.all([
                     this.loadStats(),
                     this.loadServices(),  // ⭐ サービス読み込みを追加
-                    this.loadTrackingLinks()
+                    this.loadTrackingLinks(),
+                    this.loadCommissions(),
+                    this.loadInvoices()
                 ]);
                 console.log('✅ loadDashboardData() completed successfully');
             } catch (error) {
@@ -920,6 +928,154 @@ function agencyDashboard() {
             } catch (error) {
                 console.error('Error loading commissions:', error);
             }
+        },
+
+        // 請求書生成（当月の承認済みコミッション）
+        async generateInvoice() {
+            if (this.generatingInvoice) return;
+
+            // 当月の期間を計算
+            const now = new Date();
+            const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+            const formatDate = (date) => {
+                return date.toISOString().split('T')[0];
+            };
+
+            if (!confirm('当月分の請求書を発行しますか？\nメールでPDFが送信されます。')) {
+                return;
+            }
+
+            this.generatingInvoice = true;
+            this.invoiceError = '';
+            this.invoiceSuccess = '';
+
+            try {
+                const response = await fetch('/.netlify/functions/invoice-generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
+                        'X-Agency-Id': localStorage.getItem('agencyId')
+                    },
+                    body: JSON.stringify({
+                        period_start: formatDate(periodStart),
+                        period_end: formatDate(periodEnd)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    this.invoiceSuccess = `請求書 ${data.invoice.invoice_number} を発行しました！メールを確認してください。`;
+                    // 請求書一覧を再読み込み
+                    await this.loadInvoices();
+                    // コミッション一覧も再読み込み
+                    await this.loadCommissions();
+                } else {
+                    this.invoiceError = data.error || '請求書の生成に失敗しました';
+                }
+            } catch (error) {
+                console.error('Error generating invoice:', error);
+                this.invoiceError = '請求書の生成に失敗しました: ' + error.message;
+            } finally {
+                this.generatingInvoice = false;
+            }
+        },
+
+        // 請求書一覧取得
+        async loadInvoices() {
+            try {
+                const response = await fetch('/.netlify/functions/invoice-list', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
+                        'X-Agency-Id': localStorage.getItem('agencyId')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.invoices = data.invoices || [];
+                }
+            } catch (error) {
+                console.error('Error loading invoices:', error);
+            }
+        },
+
+        // PDF再ダウンロード
+        async downloadInvoice(invoiceId, invoiceNumber) {
+            try {
+                const response = await fetch(`/.netlify/functions/invoice-download?invoice_id=${invoiceId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
+                        'X-Agency-Id': localStorage.getItem('agencyId')
+                    }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `invoice_${invoiceNumber}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('PDFのダウンロードに失敗しました');
+                }
+            } catch (error) {
+                console.error('Error downloading invoice:', error);
+                alert('PDFのダウンロードに失敗しました');
+            }
+        },
+
+        // メール再送信
+        async resendInvoiceEmail(invoiceId, invoiceNumber) {
+            if (!confirm(`請求書 ${invoiceNumber} をメールで再送信しますか？`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/.netlify/functions/invoice-resend-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('agencyAuthToken')}`,
+                        'X-Agency-Id': localStorage.getItem('agencyId')
+                    },
+                    body: JSON.stringify({
+                        invoice_id: invoiceId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    alert('メールを再送信しました');
+                    await this.loadInvoices();
+                } else {
+                    alert('メール送信に失敗しました: ' + (data.error || '不明なエラー'));
+                }
+            } catch (error) {
+                console.error('Error resending invoice email:', error);
+                alert('メール送信に失敗しました');
+            }
+        },
+
+        // 請求書ステータスのラベル
+        getInvoiceStatusLabel(status) {
+            const labels = {
+                'draft': '下書き',
+                'issued': '発行済み',
+                'sent': '送信済み',
+                'paid': '支払済み',
+                'cancelled': 'キャンセル',
+                'corrected': '訂正済み'
+            };
+            return labels[status] || status;
         },
 
         async loadBillingStats() {
