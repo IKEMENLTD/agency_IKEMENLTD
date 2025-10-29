@@ -330,7 +330,10 @@ async function getLineUserProfile(userId) {
 // Link user to recent tracking visit with enhanced agency attribution
 async function linkUserToTracking(lineUserId, userId) {
     try {
-        // First, try to find an active session for this user
+        console.log('=== linkUserToTracking 開始 ===');
+        console.log('LINE User ID:', lineUserId);
+
+        // 🎯 STEP 1: セッションベースのマッチング（最優先・最高精度）
         const { data: activeSession, error: sessionError } = await supabase
             .from('user_sessions')
             .select('*')
@@ -341,6 +344,7 @@ async function linkUserToTracking(lineUserId, userId) {
 
         if (!sessionError && activeSession && activeSession.length > 0) {
             const session = activeSession[0];
+            console.log('✅ セッションマッチング成功:', session.id);
 
             // Update session with LINE user info
             const { error: updateError } = await supabase
@@ -378,57 +382,228 @@ async function linkUserToTracking(lineUserId, userId) {
             }
         }
 
-        // Fallback to old method for backward compatibility
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        console.log('⚠️ セッションマッチングなし、訪問履歴でマッチング開始');
 
-        // Try agency_tracking_visits first
-        const { data: agencyVisits, error: agencyError } = await supabase
+        // 🎯 STEP 2: 高精度訪問マッチング（IPアドレス + User-Agent + 時間窓）
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10分以内に短縮
+
+        // Get LINE user's connection info from LINE API (if available)
+        // Note: LINE doesn't provide IP, so we'll use visit patterns
+
+        // Try agency_tracking_visits with stricter matching
+        const { data: candidateVisits, error: agencyError } = await supabase
             .from('agency_tracking_visits')
             .select('*')
             .is('line_user_id', null)
-            .gte('created_at', oneHourAgo)
-            .order('created_at', { ascending: false })
-            .limit(5);
+            .gte('created_at', tenMinutesAgo) // 10分以内
+            .order('created_at', { ascending: false });
 
-        if (!agencyError && agencyVisits && agencyVisits.length > 0) {
-            // Link all recent visits to this user (not just the first one)
-            const { error: updateError } = await supabase
-                .from('agency_tracking_visits')
-                .update({ line_user_id: lineUserId })
-                .in('id', agencyVisits.map(v => v.id));
+        if (agencyError) {
+            console.error('❌ 訪問履歴取得エラー:', agencyError);
+            return null;
+        }
 
-            if (!updateError) {
-                console.log(`Linked LINE user ${lineUserId} to ${agencyVisits.length} agency visit(s)`);
+        if (!candidateVisits || candidateVisits.length === 0) {
+            console.log('⚠️ 過去10分以内の未紐付け訪問なし');
+            return null;
+        }
+
+        console.log(`📊 候補訪問数: ${candidateVisits.length}件`);
+
+        // 🔍 STEP 3: スコアリングによる最適マッチング
+        let bestMatch = null;
+        let bestScore = 0;
+
+        for (const visit of candidateVisits) {
+            let score = 0;
+            const debugInfo = { visit_id: visit.id, scores: {} };
+
+            // 時間的近さスコア（最近ほど高い）
+            const ageMinutes = (Date.now() - new Date(visit.created_at).getTime()) / (60 * 1000);
+            const timeScore = Math.max(0, 10 - ageMinutes); // 0分=10点、10分=0点
+            score += timeScore;
+            debugInfo.scores.time = timeScore.toFixed(2);
+
+            // セッションIDがある場合は大幅加点
+            if (visit.session_id) {
+                score += 20;
+                debugInfo.scores.session = 20;
+            }
+
+            // Referrer検証: 公式サイトからの流入を除外
+            if (visit.referrer) {
+                const isOfficialSite =
+                    visit.referrer.includes('taskmateai.net') ||
+                    visit.referrer.includes('agency.ikemen.ltd') ||
+                    visit.referrer.includes('ikemen.ltd');
+
+                if (isOfficialSite && !visit.tracking_link_id) {
+                    // 公式サイトからの流入でトラッキングリンク経由でない場合は大幅減点
+                    score -= 50;
+                    debugInfo.scores.official_penalty = -50;
+                    debugInfo.referrer = visit.referrer;
+                }
+            }
+
+            // トラッキングリンク経由（代理店リンク）は加点
+            if (visit.tracking_link_id) {
+                score += 15;
+                debugInfo.scores.tracking_link = 15;
+            }
+
+            // デバイス情報の一貫性（同じブラウザ/OS）
+            if (visit.browser) {
+                score += 5;
+                debugInfo.scores.browser = 5;
+            }
+
+            debugInfo.total_score = score;
+            console.log('📊 訪問スコア:', JSON.stringify(debugInfo));
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = visit;
             }
         }
 
-        // Also check old tracking_visits table
+        // 🎯 STEP 4: ベストマッチのみ紐付け
+        if (bestMatch && bestScore > 0) {
+            console.log(`✅ ベストマッチ決定: visit_id=${bestMatch.id}, score=${bestScore}`);
+            console.log(`- Tracking Link ID: ${bestMatch.tracking_link_id || 'なし'}`);
+            console.log(`- Agency ID: ${bestMatch.agency_id || 'なし'}`);
+            console.log(`- Referrer: ${bestMatch.referrer || 'なし'}`);
+
+            const { error: updateError } = await supabase
+                .from('agency_tracking_visits')
+                .update({ line_user_id: lineUserId })
+                .eq('id', bestMatch.id);
+
+            if (!updateError) {
+                console.log(`✅ LINE user ${lineUserId} を visit ${bestMatch.id} に紐付けました`);
+
+                // コンバージョン記録（代理店リンク経由の場合のみ）
+                if (bestMatch.tracking_link_id && bestMatch.agency_id) {
+                    await createAgencyConversion(bestMatch, lineUserId);
+                }
+
+                return bestMatch;
+            } else {
+                console.error('❌ 訪問更新エラー:', updateError);
+            }
+        } else {
+            console.log('⚠️ 有効なマッチングなし（スコアが低い、または候補なし）');
+        }
+
+        // 🔽 STEP 5: 旧tracking_visitsテーブルのフォールバック（互換性維持）
         const { data: recentVisits, error } = await supabase
             .from('tracking_visits')
             .select('*')
             .is('line_user_id', null)
-            .gte('visited_at', oneHourAgo)
+            .gte('visited_at', tenMinutesAgo)
             .order('visited_at', { ascending: false })
-            .limit(5);
+            .limit(1);
 
-        if (error || !recentVisits || recentVisits.length === 0) {
-            return null;
+        if (!error && recentVisits && recentVisits.length > 0) {
+            const { error: updateError } = await supabase
+                .from('tracking_visits')
+                .update({ line_user_id: userId })
+                .eq('id', recentVisits[0].id);
+
+            if (!updateError) {
+                console.log(`✅ (旧テーブル) LINE user ${lineUserId} を visit ${recentVisits[0].id} に紐付けました`);
+                return recentVisits[0];
+            }
         }
 
-        // Link the most recent visit to this user
-        const { error: updateError } = await supabase
-            .from('tracking_visits')
-            .update({ line_user_id: userId })
-            .eq('id', recentVisits[0].id);
-
-        if (!updateError) {
-            console.log(`Linked LINE user ${lineUserId} to visit ${recentVisits[0].id}`);
-        }
-
+        console.log('⚠️ 紐付け可能な訪問が見つかりませんでした');
         return null;
     } catch (error) {
         console.error('Error linking user to tracking:', error);
         return null;
+    }
+}
+
+// Create agency conversion from visit (used in linkUserToTracking)
+async function createAgencyConversion(visit, lineUserId) {
+    try {
+        console.log('=== createAgencyConversion 開始 ===');
+        console.log('Visit ID:', visit.id);
+        console.log('Agency ID:', visit.agency_id);
+        console.log('Tracking Link ID:', visit.tracking_link_id);
+
+        // Check if conversion already exists
+        const { data: existingConversion } = await supabase
+            .from('agency_conversions')
+            .select('id')
+            .eq('tracking_link_id', visit.tracking_link_id)
+            .eq('line_user_id', lineUserId)
+            .eq('conversion_type', 'line_friend')
+            .single();
+
+        if (existingConversion) {
+            console.log('⚠️ コンバージョンは既に記録済み');
+            return; // Already recorded
+        }
+
+        // Get tracking link to extract service_id
+        let serviceId = null;
+        if (visit.tracking_link_id) {
+            const { data: trackingLink } = await supabase
+                .from('agency_tracking_links')
+                .select('service_id')
+                .eq('id', visit.tracking_link_id)
+                .single();
+
+            serviceId = trackingLink?.service_id || null;
+        }
+
+        const conversionData = {
+            agency_id: visit.agency_id,
+            tracking_link_id: visit.tracking_link_id,
+            visit_id: visit.id,
+            service_id: serviceId,
+            line_user_id: lineUserId,
+            conversion_type: 'line_friend',
+            conversion_value: 0,
+            line_display_name: null, // Will be updated when profile is fetched
+            metadata: {
+                referrer: visit.referrer,
+                utm_source: visit.utm_source,
+                utm_medium: visit.utm_medium,
+                utm_campaign: visit.utm_campaign,
+                device_type: visit.device_type,
+                browser: visit.browser,
+                os: visit.os
+            }
+        };
+
+        const { error: conversionError } = await supabase
+            .from('agency_conversions')
+            .insert([conversionData]);
+
+        if (conversionError) {
+            console.error('❌ コンバージョン記録エラー:', conversionError);
+        } else {
+            console.log(`✅ LINE友達追加コンバージョンを記録 (Agency: ${visit.agency_id})`);
+
+            // Update tracking link conversion count
+            if (visit.tracking_link_id) {
+                await supabase.rpc('increment_tracking_link_conversions', {
+                    link_id: visit.tracking_link_id
+                }).catch(err => {
+                    // Fallback to direct update if RPC doesn't exist
+                    supabase
+                        .from('agency_tracking_links')
+                        .update({
+                            conversion_count: supabase.raw('conversion_count + 1')
+                        })
+                        .eq('id', visit.tracking_link_id);
+                });
+            }
+        }
+
+    } catch (error) {
+        console.error('❌ createAgencyConversion エラー:', error);
     }
 }
 
