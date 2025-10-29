@@ -387,8 +387,13 @@ async function linkUserToTracking(lineUserId, userId) {
         // 🎯 STEP 2: 高精度訪問マッチング（IPアドレス + User-Agent + 時間窓）
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10分以内に短縮
 
-        // Get LINE user's connection info from LINE API (if available)
-        // Note: LINE doesn't provide IP, so we'll use visit patterns
+        // Get LINE Webhook request info for IP matching
+        const lineWebhookIP = getClientIPFromHeaders(event.headers);
+        const lineWebhookUserAgent = event.headers['user-agent'] || '';
+
+        console.log('📍 LINE Webhook情報:');
+        console.log('- IP:', lineWebhookIP);
+        console.log('- User-Agent:', lineWebhookUserAgent.substring(0, 100));
 
         // Try agency_tracking_visits with stricter matching
         const { data: candidateVisits, error: agencyError } = await supabase
@@ -417,6 +422,51 @@ async function linkUserToTracking(lineUserId, userId) {
         for (const visit of candidateVisits) {
             let score = 0;
             const debugInfo = { visit_id: visit.id, scores: {} };
+
+            // 🔥 IPアドレス完全一致（最高優先度）+10点
+            if (visit.visitor_ip && lineWebhookIP && lineWebhookIP !== 'unknown') {
+                if (visit.visitor_ip === lineWebhookIP) {
+                    score += 10;
+                    debugInfo.scores.ip_match = 10;
+                    debugInfo.ip_matched = true;
+                } else {
+                    // IP不一致は減点（異なるネットワークからのアクセス）
+                    debugInfo.ip_matched = false;
+                    debugInfo.visitor_ip = visit.visitor_ip;
+                    debugInfo.webhook_ip = lineWebhookIP;
+                }
+            }
+
+            // 🔥 User-Agent完全一致 +10点
+            if (visit.user_agent && lineWebhookUserAgent) {
+                // User-Agentの類似度を計算（完全一致または部分一致）
+                const visitUA = visit.user_agent.toLowerCase();
+                const webhookUA = lineWebhookUserAgent.toLowerCase();
+
+                if (visitUA === webhookUA) {
+                    // 完全一致
+                    score += 10;
+                    debugInfo.scores.ua_exact_match = 10;
+                } else if (visitUA.includes('line') && webhookUA.includes('line')) {
+                    // LINEアプリ内ブラウザ同士（部分一致）
+                    score += 7;
+                    debugInfo.scores.ua_line_match = 7;
+                } else {
+                    // ブラウザ種類が一致するか確認
+                    const visitBrowser = extractBrowser(visitUA);
+                    const webhookBrowser = extractBrowser(webhookUA);
+
+                    if (visitBrowser === webhookBrowser && visitBrowser !== 'unknown') {
+                        score += 3;
+                        debugInfo.scores.ua_browser_match = 3;
+                        debugInfo.browser = visitBrowser;
+                    } else {
+                        debugInfo.ua_mismatch = true;
+                        debugInfo.visit_browser = visitBrowser;
+                        debugInfo.webhook_browser = webhookBrowser;
+                    }
+                }
+            }
 
             // 時間的近さスコア（最近ほど高い）
             const ageMinutes = (Date.now() - new Date(visit.created_at).getTime()) / (60 * 1000);
@@ -1038,6 +1088,43 @@ async function forwardToExternal(body, signature) {
             console.error('❌ External webhook forward error:', error.message);
         }
     }
+}
+
+// Helper function: Extract browser type from User-Agent string
+function extractBrowser(userAgent) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('edg/')) return 'edge';
+    if (ua.includes('chrome/') && !ua.includes('edg/')) return 'chrome';
+    if (ua.includes('firefox/')) return 'firefox';
+    if (ua.includes('safari/') && !ua.includes('chrome/')) return 'safari';
+    if (ua.includes('line/')) return 'line';
+    if (ua.includes('opera/') || ua.includes('opr/')) return 'opera';
+    return 'unknown';
+}
+
+// Helper function: Get client IP address from request headers
+function getClientIPFromHeaders(headers) {
+    // Check common proxy headers in priority order
+    const ipHeaders = [
+        'x-forwarded-for',      // Most common (Netlify, Cloudflare, etc.)
+        'x-real-ip',            // Nginx proxy
+        'x-client-ip',          // Apache proxy
+        'cf-connecting-ip',     // Cloudflare specific
+        'x-forwarded',          // Alternative
+        'forwarded-for',        // Alternative
+        'forwarded'             // RFC 7239
+    ];
+
+    for (const header of ipHeaders) {
+        const value = headers[header];
+        if (value) {
+            // x-forwarded-for can contain multiple IPs (client, proxy1, proxy2)
+            // Take the first one (actual client IP)
+            return value.split(',')[0].trim();
+        }
+    }
+
+    return 'unknown';
 }
 
 if (!LINE_CHANNEL_SECRET || !LINE_CHANNEL_ACCESS_TOKEN) {
