@@ -8,26 +8,16 @@ const supabase = createClient(
 );
 
 exports.handler = async (event, context) => {
-    // Handle CORS
+    // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers: {
-                // Secure CORS - see getCorsHeaders(),
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
-            }
-        };
+        return handleCorsPreflightRequest(event);
     }
 
     // Only allow POST method
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
-            headers: {
-                // Secure CORS - see getCorsHeaders(),
-                'Content-Type': 'application/json'
-            },
+            headers: getCorsHeaders(event, { 'Content-Type': 'application/json' }),
             body: JSON.stringify({ error: 'Method not allowed' })
         };
     }
@@ -39,10 +29,7 @@ exports.handler = async (event, context) => {
         if (!trackingData.tracking_code) {
             return {
                 statusCode: 400,
-                headers: {
-                    // Secure CORS - see getCorsHeaders(),
-                    'Content-Type': 'application/json'
-                },
+                headers: getCorsHeaders(event, { 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     error: 'Missing tracking_code'
                 })
@@ -60,10 +47,7 @@ exports.handler = async (event, context) => {
         if (linkError || !trackingLink) {
             return {
                 statusCode: 404,
-                headers: {
-                    // Secure CORS - see getCorsHeaders(),
-                    'Content-Type': 'application/json'
-                },
+                headers: getCorsHeaders(event, { 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     error: 'Invalid tracking code'
                 })
@@ -134,11 +118,10 @@ exports.handler = async (event, context) => {
         // Return tracking link's LINE friend URL and session info
         return {
             statusCode: 200,
-            headers: {
-                // Secure CORS - see getCorsHeaders(),
+            headers: getCorsHeaders(event, {
                 'Content-Type': 'application/json',
                 'Set-Cookie': `tracking_session=${JSON.stringify(sessionData)}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=3600`
-            },
+            }),
             body: JSON.stringify({
                 success: true,
                 line_friend_url: trackingLink.line_friend_url,
@@ -158,10 +141,7 @@ exports.handler = async (event, context) => {
 
         return {
             statusCode: 500,
-            headers: {
-                // Secure CORS - see getCorsHeaders(),
-                'Content-Type': 'application/json'
-            },
+            headers: getCorsHeaders(event, { 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 error: 'Internal server error: ' + error.message
             })
