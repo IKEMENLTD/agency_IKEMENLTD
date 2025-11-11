@@ -220,3 +220,121 @@ Netlifyが自動的に検知して、数分後にデプロイ完了。
 - WebFetchツールで実際のデプロイ状態を確認できる
 
 ---
+
+## 2025-11-11: track-visit関数のCORSエラー修正
+
+### 新たな問題発見
+
+前回の`/t/*`リダイレクト修正後、`https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセスできるようになったが、新たなエラーが発生:
+
+```
+Failed to load resource: the server responded with a status of 404 ()
+/.netlify/functions/track-visit:1
+Tracking error: Error: Failed to track visit
+```
+
+### 問題の原因
+
+**track-visit.js関数でgetCorsHeaders()を使用していなかった**
+
+- ファイル: `netlify/functions/track-visit.js`
+- 2行目でgetCorsHeaders()とhandleCorsPreflightRequest()をインポート
+- しかし、すべてのレスポンスでコメント「`// Secure CORS - see getCorsHeaders()`」だけで、実際には呼び出していなかった
+- 結果: CORSヘッダーが正しく設定されず、ブラウザからのリクエストがブロックされる
+
+### 解決策
+
+track-visit.jsのすべてのレスポンスで`getCorsHeaders(event)`を使用:
+
+```javascript
+// 修正前（OPTIONS）
+if (event.httpMethod === 'OPTIONS') {
+    return {
+        statusCode: 200,
+        headers: {
+            // Secure CORS - see getCorsHeaders(),
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+        }
+    };
+}
+
+// 修正後（OPTIONS）
+if (event.httpMethod === 'OPTIONS') {
+    return handleCorsPreflightRequest(event);
+}
+
+// 修正前（405エラー）
+return {
+    statusCode: 405,
+    headers: {
+        // Secure CORS - see getCorsHeaders(),
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ error: 'Method not allowed' })
+};
+
+// 修正後（405エラー）
+return {
+    statusCode: 405,
+    headers: getCorsHeaders(event, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ error: 'Method not allowed' })
+};
+```
+
+同様の修正を以下のすべてのレスポンスに適用:
+- OPTIONS（プリフライト）: `handleCorsPreflightRequest(event)`
+- 405エラー（メソッド不許可）: `getCorsHeaders(event, {...})`
+- 400エラー（バリデーション失敗）: `getCorsHeaders(event, {...})`
+- 404エラー（トラッキングコード無効）: `getCorsHeaders(event, {...})`
+- 200成功（正常レスポンス）: `getCorsHeaders(event, {...})`
+- 500エラー（サーバーエラー）: `getCorsHeaders(event, {...})`
+
+### 変更内容
+
+**ファイル**: `netlify/functions/track-visit.js`
+
+- すべてのハードコードされたCORSヘッダーを削除
+- `getCorsHeaders(event, additionalHeaders)`を使用
+- `handleCorsPreflightRequest(event)`でOPTIONSリクエストを処理
+
+### デプロイ方法
+
+```bash
+cd "C:\Users\ooxmi\Downloads\イケメン代理店管理システム"
+git push origin main
+```
+
+**注意**: 認証が必要なため、Personal Access Tokenを使用:
+```bash
+git push https://YOUR_TOKEN@github.com/IKEMENLTD/agency_IKEMENLTD.git main
+```
+
+Netlifyが自動的に検知して、数分後にデプロイ完了。
+
+### 関連コミット
+
+- `bf57ff4`: **track-visit関数のCORSヘッダーを修正（最終解決）**
+- `8b8f05e`: /t/*リダイレクト追加
+- `111c5d5`: CLAUDE.md作成
+
+### 検証方法
+
+1. `https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセス
+2. ブラウザコンソールで404エラーが表示されないことを確認
+3. 正常にLINEにリダイレクトされることを確認
+
+### 技術的な学び
+
+- **CORSヘッダーの重要性**: ブラウザからのAPIリクエストでは、CORSヘッダーが必須
+- **コメントと実装の乖離**: コメントで「see getCorsHeaders()」と書いても、実際に呼び出さないと意味がない
+- **一貫性のある実装**: すべてのレスポンスで同じヘッダー生成関数を使うべき
+- **セキュリティ**: `cors-headers.js`はオリジンのホワイトリストチェックを実装しているため、セキュリティ向上
+
+### 次のステップ
+
+1. ⏳ `git push origin main`を実行（ユーザー側で認証が必要）
+2. ⏳ Netlifyの自動デプロイを待つ（2-3分）
+3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`で動作確認
+
+---
