@@ -24,8 +24,11 @@
   to = "/admin/index.html"
   status = 200
 
-# Tracking page handles its own routing via functions
-# No redirect needed for /t/* routes
+# Tracking link routing - serves static HTML page
+[[redirects]]
+  from = "/t/*"
+  to = "/t/index.html"
+  status = 200
 
 # Security headers for agency dashboard
 [[headers]]
