@@ -137,3 +137,86 @@ netlify/functions/utils/line-webhook-common.js
 - Netlifyの自動デプロイが有効なため、プッシュ後数分でデプロイ完了
 
 ---
+
+## 2025-11-11: トラッキングリンク（紹介リンク）404エラーの修正
+
+### 問題の詳細調査
+
+ユーザーから「紹介リンクが見れない」という報告があり、最初は間違ったプロジェクト（gas-generator）を調査していた。
+正しいプロジェクト（イケメン代理店管理システム）に切り替えて再調査。
+
+### 実際の問題
+
+- **URL**: `https://agency.ikemen.ltd/t/3ziinbhuytjk`
+- **エラー**: 404 Page not found
+- **影響**: 代理店が作成した紹介リンク（トラッキングリンク）がすべて機能しない
+
+### 調査プロセス
+
+1. ✅ `/agency/`ページは正常に動作していることを確認（WebFetchで検証）
+2. ✅ `agency/dashboard.js`など、代理店管理画面のファイルは正常に取得できる
+3. ✅ `/t/index.html`ファイルは存在する（10,660 bytes）
+4. ❌ netlify.tomlに`/t/*`のリダイレクト設定が**欠けていた**
+
+### 根本原因
+
+**netlify.tomlの設定不足**
+
+```toml
+# 設定前（問題あり）
+# Tracking page handles its own routing via functions
+# No redirect needed for /t/* routes
+```
+
+コメントで「リダイレクト不要」と書かれていたが、実際には必要だった。
+
+### 解決策
+
+netlify.tomlに以下のリダイレクト設定を追加（コミット`8b8f05e`）:
+
+```toml
+# Tracking link routing - serves static HTML page
+[[redirects]]
+  from = "/t/*"
+  to = "/t/index.html"
+  status = 200
+```
+
+これにより、`/t/`配下のすべてのパスが`/t/index.html`にルーティングされ、`t/index.html`内のJavaScriptがトラッキングコードを解析して適切なリダイレクトを実行できる。
+
+### 変更内容
+
+**ファイル**: `netlify.toml`
+
+- `/t/*` → `/t/index.html`のリダイレクトを追加
+- status: 200（内部リライト）
+- `/agency/*`や`/admin/*`と同じSPAルーティングパターン
+
+### 検証結果
+
+- ✅ `/t/index.html`が存在することを確認
+- ✅ `publish = "."`のため、tディレクトリがデプロイに含まれる
+- ✅ リダイレクト設定により、任意のトラッキングコード（例: `/t/3ziinbhuytjk`）が`/t/index.html`にルーティングされる
+
+### デプロイ方法
+
+```bash
+cd "C:\Users\ooxmi\Downloads\イケメン代理店管理システム"
+git push origin main
+```
+
+Netlifyが自動的に検知して、数分後にデプロイ完了。
+
+### 関連コミット
+
+- `8b8f05e`: **トラッキングリンク404エラーの修正（最終解決）**
+- `111c5d5`: CLAUDE.md作成
+
+### 学んだこと
+
+- プロジェクトを間違えないよう、作業開始時に必ず`git remote -v`を確認する
+- netlify.tomlのコメントを鵜呑みにせず、実際の動作を確認する
+- SPAルーティングパターン（`/*` → `/index.html`）はすべての動的パスで必要
+- WebFetchツールで実際のデプロイ状態を確認できる
+
+---
