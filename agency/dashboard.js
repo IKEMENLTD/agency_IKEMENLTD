@@ -1949,13 +1949,14 @@ function agencyDashboard() {
             }
 
             // CSVヘッダー
-            const headers = ['日時', 'LINE表示名', 'デバイス', 'ブラウザ', 'OS', 'リファラー', 'IPアドレス', 'セッションID'];
+            const headers = ['日時', 'LINE表示名', '既存/新規', 'デバイス', 'ブラウザ', 'OS', 'リファラー', 'IPアドレス', 'セッションID'];
 
             // CSVデータ行
             const rows = this.linkVisits.map(visit => {
                 return [
                     this.formatDateTime(visit.created_at),
                     visit.line_display_name || '-',
+                    visit.friend_status || '-',
                     visit.device_type || '-',
                     visit.browser || '-',
                     visit.os || '-',
