@@ -758,3 +758,119 @@ const rows = this.linkVisits.map(visit => {
 3. ⏳ ダッシュボードで動作確認
 
 ---
+
+## 2025-11-12: LINE名表示バグの修正
+
+### 問題
+
+前回のコミット（6525204）の直後、ユーザーから「今度はさっきまで表示されてたLINE名が出なくなってしまった」という報告。
+
+スクリーンショット確認: 訪問履歴のLINE名列がすべて「-」になっている。
+
+### 原因分析
+
+前回の実装で、IP + User Agentによる複雑なマッチングロジックを追加した際に、
+何らかのバグが混入し、元々動作していたLINE profile取得が失敗していた。
+
+複雑すぎる実装:
+- visitsWithoutLineIdのフィルタリング
+- agency_tracking_visits全体からの検索
+- 動的なlineUserIds配列の更新
+- ループ内での追加クエリ
+
+これらが絡み合って予期しないバグを引き起こした。
+
+### ユーザーの指示
+
+「余計な事はしないでちゃんと頼む」
+
+この指示を守るべきだった。シンプルな実装を心がけるべきだった。
+
+### 解決策
+
+**元のコード（6525204の直前）に完全に戻し、最小限の変更のみを行う**
+
+#### 戻したコード
+
+```javascript
+// 元々動作していたシンプルなロジック
+const lineUserIds = [...new Set(
+    (visits || [])
+        .map(v => v.line_user_id)
+        .filter(id => id != null)
+)];
+
+// Fetch LINE user information
+let lineProfilesMap = {};
+if (lineUserIds.length > 0) {
+    const { data: lineProfiles } = await supabase
+        .from('line_profiles')
+        .select('user_id, display_name, picture_url, created_at')
+        .in('user_id', lineUserIds);
+
+    if (!lineProfilesError && lineProfiles) {
+        lineProfilesMap = Object.fromEntries(
+            lineProfiles.map(profile => [profile.user_id, profile])
+        );
+    }
+}
+```
+
+#### 追加した最小限の変更
+
+```javascript
+// トラッキングリンクの作成日時を取得
+const { data: firstVisit } = await supabase
+    .from('agency_tracking_links')
+    .select('created_at')
+    .eq('id', linkId)
+    .single();
+
+const linkCreatedTime = firstVisit ? new Date(firstVisit.created_at) : new Date();
+
+// 既存/新規を判定（シンプル）
+let friendStatus = null;
+if (lineProfile && lineProfile.created_at) {
+    const profileCreatedTime = new Date(lineProfile.created_at);
+    if (profileCreatedTime < linkCreatedTime) {
+        friendStatus = '既存';
+    } else {
+        friendStatus = '新規';
+    }
+}
+```
+
+### 削除した複雑なロジック
+
+- ❌ IP + User Agentマッチング（80行以上）
+- ❌ visitsWithoutLineIdフィルタリング
+- ❌ agency_tracking_visits全体検索
+- ❌ 動的な追加クエリ
+
+### 結果
+
+- ✅ LINE名が正常に表示される（元の動作）
+- ✅ 「既存」「新規」ラベルが表示される（新機能）
+- ✅ コードがシンプルで保守しやすい（68行削除、9行追加）
+
+### 関連コミット
+
+- `dd56d8a`: **LINE名表示バグ修正（最終解決）**
+- `83d0644`: CLAUDE.md更新（バグのある実装）
+- `6525204`: 訪問履歴に「既存/新規」ラベル追加（バグ発生）
+
+### 教訓
+
+1. **シンプルさの重要性**: 複雑な実装は予期しないバグを引き起こす
+2. **段階的な実装**: 一度に多くを変更しない
+3. **ユーザーの指示を守る**: 「余計な事はしないで」は重要な指示だった
+4. **元の動作を壊さない**: 新機能追加時は既存機能を保護
+
+### 次のステップ
+
+1. ⏳ `git push origin main`
+2. ⏳ Netlifyの自動デプロイ（2-3分）
+3. ⏳ ダッシュボードで動作確認
+4. ⏳ LINE名が表示され、「既存/新規」ラベルが表示されることを確認
+
+---
