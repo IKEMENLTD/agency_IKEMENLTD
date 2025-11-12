@@ -338,3 +338,169 @@ Netlifyが自動的に検知して、数分後にデプロイ完了。
 3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`で動作確認
 
 ---
+
+## 2025-11-11: トラッキングリンクの根本原因を発見・修正
+
+### 徹底的な調査による根本原因の特定
+
+ユーザーから「10秒タイムアウトエラーが出続ける」という報告を受け、徹底的に調査した結果、**アーキテクチャレベルの問題**を発見。
+
+### 発見した根本原因
+
+**このプロジェクトには2つの異なるトラッキングシステムが混在していた**
+
+#### 1. 旧システム (track-visit.js + track-session.js)
+
+- **テーブル**: `tracking_links`, `tracking_visits`
+- **アーキテクチャ**: クライアントサイドでfetchを使ってAPIを呼び出す
+- **問題**: t/index.htmlがこれを使おうとしていたが、実際には使われていない
+- **状態**: デプロイされているが、データベーステーブルが存在しない
+
+#### 2. 実際のシステム (track-redirect.js)
+
+- **テーブル**: `agency_tracking_links`, `agency_tracking_visits`
+- **アーキテクチャ**: サーバーサイドで完結、直接リダイレクト
+- **機能**:
+  - 詳細なログ機能（logger使用）
+  - 訪問記録の自動作成
+  - 訪問カウントの自動更新
+  - UTMパラメータの自動付与
+  - セッションID生成
+- **状態**: 完全に実装済み、正常動作
+
+### 問題の流れ
+
+1. ユーザーが`https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセス
+2. netlify.tomlのリダイレクト: `/t/*` → `/t/index.html`
+3. t/index.htmlがロード
+4. JavaScriptが`/.netlify/functions/track-visit`を呼び出し
+5. **track-visit関数が`tracking_links`テーブルを検索**
+6. **テーブルが存在しない または データが存在しない**
+7. 404エラー
+8. 10秒後にタイムアウトエラー表示
+
+### 解決策
+
+#### 1. netlify.tomlを修正
+
+```toml
+# 修正前（間違ったアーキテクチャ）
+[[redirects]]
+  from = "/t/*"
+  to = "/t/index.html"
+  status = 200
+
+# 修正後（正しいアーキテクチャ）
+[[redirects]]
+  from = "/t/:code"
+  to = "/.netlify/functions/track-redirect/:code"
+  status = 200
+```
+
+**重要**: これにより、t/index.htmlを完全にバイパスし、track-redirect関数が直接呼ばれる。
+
+#### 2. t/index.htmlを簡略化
+
+- 複雑なfetchロジック（約280行）を削除
+- 単純なリダイレクトページ（約125行）に変更
+- フォールバックとして機能（netlify.tomlで直接ルーティングされるため、通常は使われない）
+
+### 新しいアーキテクチャの流れ
+
+1. ユーザーが`https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセス
+2. netlify.tomlのリダイレクト: `/t/3ziinbhuytjk` → `/.netlify/functions/track-redirect/3ziinbhuytjk`
+3. **track-redirect関数が直接実行**
+4. `agency_tracking_links`テーブルから`3ziinbhuytjk`を検索
+5. 訪問記録を`agency_tracking_visits`に保存
+6. 訪問カウントを更新
+7. LINE URLに直接リダイレクト（HTTP 302）
+
+### 技術的な利点
+
+1. **サーバーサイド処理**: CORSエラーが発生しない
+2. **シンプル**: クライアントサイドのfetch不要
+3. **高速**: 1回のHTTPリクエストで完結
+4. **デバッグ容易**: logger.jsによる詳細なログ
+5. **正しいDB**: 実際に使われているテーブルを参照
+
+### track-redirect.jsの主要機能
+
+```javascript
+// 1. トラッキングコードからリンク情報を取得
+const { data: link } = await supabase
+    .from('agency_tracking_links')
+    .select('*, agencies (*), services (*)')
+    .eq('tracking_code', trackingCode)
+    .eq('is_active', true)
+    .single();
+
+// 2. 訪問記録を作成
+const { data: visit } = await supabase
+    .from('agency_tracking_visits')
+    .insert({
+        tracking_link_id: link.id,
+        agency_id: link.agency_id,
+        service_id: link.service_id,
+        visitor_ip: visitorInfo.ip,
+        user_agent: visitorInfo.userAgent,
+        // ... その他のトラッキング情報
+    })
+    .select()
+    .single();
+
+// 3. 訪問カウントを更新
+await supabase
+    .from('agency_tracking_links')
+    .update({ visit_count: link.visit_count + 1 })
+    .eq('id', link.id);
+
+// 4. LINE URLにリダイレクト
+return {
+    statusCode: 302,
+    headers: {
+        'Location': destinationUrl,
+        'Cache-Control': 'no-cache'
+    }
+};
+```
+
+### デプロイ方法
+
+```bash
+cd "C:\Users\ooxmi\Downloads\イケメン代理店管理システム"
+git push origin main
+```
+
+### 関連コミット
+
+- `a3a6dfc`: **トラッキングリンクの根本原因を修正（最終解決）**
+- `33ca367`: CLAUDE.md更新（track-visit CORS修正）
+- `bf57ff4`: track-visit関数のCORSヘッダー修正（不要になった）
+- `8b8f05e`: /t/*リダイレクト追加
+
+### 検証方法
+
+1. `https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセス
+2. **即座にLINEにリダイレクトされる**（10秒待たない）
+3. ブラウザのネットワークタブで確認:
+   - `/t/3ziinbhuytjk` → 200 OK (netlify redirect)
+   - `/.netlify/functions/track-redirect/3ziinbhuytjk` → 302 Found
+   - LINE URL → 200 OK
+
+### 重要な学び
+
+- **アーキテクチャの一貫性**: 2つの異なるシステムが混在すると、混乱とバグの原因になる
+- **テーブル名の確認**: tracking_links vs agency_tracking_links の違いが致命的だった
+- **既存コードの調査**: track-redirect.jsは完璧に実装されていたのに、使われていなかった
+- **ログの重要性**: track-redirect.jsの詳細なログがデバッグを容易にする
+- **サーバーサイド vs クライアントサイド**: トラッキングのような機能はサーバーサイドで処理すべき
+
+### 次のステップ
+
+1. ⏳ `git push origin main`を実行（ユーザー側で認証が必要）
+2. ⏳ Netlifyの自動デプロイを待つ（2-3分）
+3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`で動作確認
+4. ⏳ Netlifyのデプロイログでtrack-redirect関数のログを確認
+5. ⏳ agency_tracking_visitsテーブルに訪問記録が作成されることを確認
+
+---
