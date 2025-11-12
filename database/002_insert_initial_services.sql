@@ -39,7 +39,7 @@ INSERT INTO services (
   'TASKMATE_LINE_CHANNEL_ID',          -- ⚠️ 後で実際の値に置き換え
   'TASKMATE_LINE_CHANNEL_SECRET',      -- ⚠️ 後で実際の値に置き換え
   'TASKMATE_LINE_ACCESS_TOKEN',        -- ⚠️ 後で実際の値に置き換え
-  'https://lin.ee/FMy4xlx',            -- ⚠️ 確認が必要（既存のURL）
+  'https://lin.ee/US4Qffq',            -- ✅ TaskMate AI LINE公式アカウント
   20.00,                               -- 20%報酬
   2.00,                                -- 2%リファラル報酬
   10000,                               -- 月額10,000円
