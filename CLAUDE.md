@@ -504,3 +504,100 @@ git push origin main
 5. ⏳ agency_tracking_visitsテーブルに訪問記録が作成されることを確認
 
 ---
+
+## 2025-11-12: TaskMate AI LINE URLの更新
+
+### 問題の特定
+
+ユーザーから「LINEの404エラーが出る」というスクリーンショットを受け取り、調査した結果:
+
+- トラッキングリンク自体は正常に動作している
+- track-redirect関数も正常に実行されている
+- しかし、リダイレクト先のLINE URLが無効だった
+
+### 原因
+
+データベースの`services`テーブルに登録されているLINE公式アカウントURLが古いか無効な状態だった。
+
+### 調査結果
+
+過去のgitログから有効なLINE URLを発見:
+
+1. **`https://lin.ee/4NLfSqH`** ✅ 有効（古いURL、2025-10-24に削除）
+2. **`https://lin.ee/FMy4xlx`** ✅ 有効（SQLファイルに記載）
+3. **`https://lin.ee/US4Qffq`** ✅ 有効（ユーザー提供、最新）
+
+すべて同じLINE公式アカウント（`@356uysad`）にリダイレクトされる。
+
+### 解決策
+
+ユーザーからの依頼により、最新のLINE URL（`https://lin.ee/US4Qffq`）に更新:
+
+#### 1. 初期データファイルの更新
+
+**ファイル**: `database/002_insert_initial_services.sql`
+
+```sql
+-- 変更前
+'https://lin.ee/FMy4xlx',  -- ⚠️ 確認が必要（既存のURL）
+
+-- 変更後
+'https://lin.ee/US4Qffq',  -- ✅ TaskMate AI LINE公式アカウント
+```
+
+#### 2. マイグレーションファイルの作成
+
+**ファイル**: `database/migration_008_update_taskmate_line_url.sql`
+
+```sql
+UPDATE services
+SET
+  line_official_url = 'https://lin.ee/US4Qffq',
+  updated_at = NOW()
+WHERE
+  name = 'TaskMate AI'
+  OR domain = 'taskmateai.net'
+  OR id = 'b5e8f3c2-1a4d-4e9b-8f6a-2c3d4e5f6a7b';
+```
+
+### データベース更新方法
+
+Supabase SQL Editorで以下を実行:
+
+```sql
+UPDATE services
+SET line_official_url = 'https://lin.ee/US4Qffq', updated_at = NOW()
+WHERE name = 'TaskMate AI';
+```
+
+確認:
+```sql
+SELECT name, line_official_url FROM services WHERE name = 'TaskMate AI';
+```
+
+### 検証手順
+
+1. ✅ LINE URLの有効性を確認（WebFetchで検証済み）
+2. ⏳ データベースのservicesテーブルを更新
+3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`にアクセス
+4. ⏳ 正しくLINEにリダイレクトされることを確認
+
+### 関連コミット
+
+- `249fbef`: **TaskMate AI LINE URLを更新（最終解決）**
+- `a3a6dfc`: トラッキングリンクの根本原因を修正
+- `67653871`: TaskMate専用システムから汎用化（LINE URL削除）
+
+### 重要なポイント
+
+- **データベース更新が必須**: コードを更新しただけでは不十分
+- **マイグレーションSQLを実行**: 既存のservicesテーブルを更新する必要がある
+- **複数のLINE URLが有効**: すべて同じアカウントにリダイレクトされる
+
+### 次のステップ
+
+1. ⏳ Supabaseで`migration_008_update_taskmate_line_url.sql`を実行
+2. ⏳ `git push origin main`（コードはデプロイ済み、DB更新のみ必要）
+3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`で動作確認
+
+---
