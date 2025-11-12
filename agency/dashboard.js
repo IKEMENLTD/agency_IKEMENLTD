@@ -153,6 +153,7 @@ function agencyDashboard() {
         visitsOffset: 0,
         visitsHasMore: false,
         visitsTotalCount: 0,
+        botsFiltered: 0,
 
         // 4段階代理店制度 - 階層情報
         referralInfo: {
@@ -1389,8 +1390,9 @@ function agencyDashboard() {
 
                     this.visitsHasMore = data.hasMore || false;
                     this.visitsTotalCount = data.total || 0;
+                    this.botsFiltered = data.botsFiltered || 0;
 
-                    console.log('✅ Loaded', data.visits?.length || 0, 'visits. Total:', this.visitsTotalCount, 'HasMore:', this.visitsHasMore);
+                    console.log('✅ Loaded', data.visits?.length || 0, 'visits. Total:', this.visitsTotalCount, 'Bots filtered:', this.botsFiltered, 'HasMore:', this.visitsHasMore);
                 } else {
                     console.error('Failed to load visits:', await response.text());
                     if (!append) {
