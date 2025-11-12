@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { getCorsHeaders, handleCorsPreflightRequest } = require('./utils/cors-headers');
 const { createClient } = require('@supabase/supabase-js');
+const { filterBotVisits } = require('./utils/bot-detector');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -101,9 +102,13 @@ exports.handler = async (event) => {
             throw visitsError;
         }
 
-        // Get unique LINE user IDs from visits
+        // Filter out bot visits
+        const filteredVisits = filterBotVisits(visits || []);
+        console.log(`Filtered ${(visits || []).length - filteredVisits.length} bot visits`);
+
+        // Get unique LINE user IDs from filtered visits
         const lineUserIds = [...new Set(
-            (visits || [])
+            filteredVisits
                 .map(v => v.line_user_id)
                 .filter(id => id != null)
         )];
@@ -133,8 +138,8 @@ exports.handler = async (event) => {
 
         const linkCreatedTime = firstVisit ? new Date(firstVisit.created_at) : new Date();
 
-        // Format visits to include LINE display name and existing/new label
-        const formattedVisits = (visits || []).map(visit => {
+        // Format filtered visits to include LINE display name and existing/new label
+        const formattedVisits = filteredVisits.map(visit => {
             const lineProfile = visit.line_user_id ? lineProfilesMap[visit.line_user_id] : null;
 
             // Determine if this is an existing or new friend
@@ -158,7 +163,9 @@ exports.handler = async (event) => {
             };
         });
 
-        // Get total count for pagination info
+        // Get total count for pagination info (only real visits, not bots)
+        // Note: This is an approximation since we filter bots in application layer
+        const totalRealVisits = formattedVisits.length;
         const { count: totalCount } = await supabase
             .from('agency_tracking_visits')
             .select('*', { count: 'exact', head: true })
@@ -169,7 +176,9 @@ exports.handler = async (event) => {
             headers,
             body: JSON.stringify({
                 visits: formattedVisits,
-                total: totalCount || 0,
+                total: totalRealVisits,
+                totalIncludingBots: totalCount || 0,
+                botsFiltered: (totalCount || 0) - totalRealVisits,
                 hasMore: (offset + limit) < (totalCount || 0),
                 offset: offset,
                 limit: limit

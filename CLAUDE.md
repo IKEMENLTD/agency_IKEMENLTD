@@ -874,3 +874,106 @@ if (lineProfile && lineProfile.created_at) {
 4. ⏳ LINE名が表示され、「既存/新規」ラベルが表示されることを確認
 
 ---
+
+---
+
+# 2025-11-12: LINE名表示問題の徹底調査
+
+## 問題報告
+ユーザーからスクリーンショット（testjpg.png）で報告：
+- 訪問履歴のLINE名が全て「-」と表示される
+- 12件の訪問記録でLINE名が表示されていない
+- その他の情報（デバイス、ブラウザ、OS）は正常に表示
+
+## 徹底調査の実施
+
+### コード調査結果
+
+1. **agency-link-visits.js（訪問履歴API）**
+   - 状態: ローカルでは正しく修正済み（dd56d8a）
+   - 問題: GitHubにプッシュされていないためNetlifyにデプロイされていない
+   - 処理: line_user_idを元にline_profilesから表示名を取得
+
+2. **track-redirect.js（訪問記録）**
+   - line_user_id は初期値NULL（144行目）
+   - 理由: 訪問時点ではLINE User IDは不明（友達追加前）
+   - これは正常な仕様
+
+3. **line-webhook-taskmate.js（LINE Webhook）**
+   - LINE友達追加イベントを受信
+   - `linkUserToTracking()`関数（207-305行目）で訪問とLINE User IDを紐付け
+   - 過去10分以内の訪問をIP、User-Agent、時間などでスコアリングマッチング
+
+### データフロー
+
+```
+ユーザークリック → track-redirect.js (line_user_id=NULL)
+  ↓
+LINE友達追加
+  ↓
+line-webhook-taskmate.js (followイベント)
+  ↓
+linkUserToTracking() でマッチング
+  ↓
+agency_tracking_visits.line_user_id を更新
+  ↓
+agency-link-visits.js で表示名取得
+```
+
+### 根本原因の候補
+
+1. **デプロイされていない（最も可能性が高い）**
+   - 修正コードがローカルにのみ存在
+   - 本番環境は古いバグのあるコードで動作中
+
+2. **LINE User IDの紐付け失敗**
+   - Webhookマッチングロジックが失敗
+   - IP/User-Agent不一致、タイミング問題
+
+3. **line_profilesテーブルにデータがない**
+   - LINE API取得失敗
+   - Access Token未設定/期限切れ
+
+### 確認が必要なこと
+
+#### データベースSQL（必須）
+```sql
+-- 訪問記録とLINE User IDの紐付け状況
+SELECT 
+    COUNT(*) as total_visits,
+    COUNT(line_user_id) as with_line_id,
+    COUNT(*) - COUNT(line_user_id) as without_line_id
+FROM agency_tracking_visits
+WHERE created_at >= '2025-10-24';
+
+-- 最近の訪問とプロファイルの結合確認
+SELECT 
+    v.created_at,
+    v.line_user_id,
+    p.display_name
+FROM agency_tracking_visits v
+LEFT JOIN line_profiles p ON v.line_user_id = p.user_id
+ORDER BY v.created_at DESC
+LIMIT 20;
+```
+
+#### 環境変数（Netlify）
+- TASKMATE_LINE_CHANNEL_SECRET
+- TASKMATE_LINE_CHANNEL_ACCESS_TOKEN
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+
+#### LINE Webhook設定
+- Webhook URL: https://agency.ikemen.ltd/.netlify/functions/line-webhook-taskmate
+- Webhook有効化: ON
+
+### 次のアクション
+
+1. **即実行**: データベースSQLでline_user_idの状態を確認
+2. **即実行**: GitHubにプッシュしてNetlifyデプロイ
+3. データがNULLの場合: LINE Webhook設定とログを確認
+
+## 調査ログ保存場所
+- `/tmp/investigation.md`: 初期調査メモ
+- `/tmp/root-cause-analysis.md`: 詳細な根本原因分析レポート
+

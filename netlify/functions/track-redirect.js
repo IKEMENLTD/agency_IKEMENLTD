@@ -1,5 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const logger = require('./utils/logger');
+const { detectBot } = require('./utils/bot-detector');
 
 // Environment variable check with detailed logging
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -121,6 +122,42 @@ exports.handler = async (event) => {
             browser: getUserBrowser(event.headers['user-agent']),
             os: getUserOS(event.headers['user-agent'])
         };
+
+        // Check if this is a bot
+        const botCheck = detectBot(visitorInfo.ip, visitorInfo.userAgent);
+
+        if (botCheck.isBot) {
+            logger.log('🤖 Bot detected:', {
+                type: botCheck.botType,
+                confidence: botCheck.confidence,
+                reason: botCheck.reason
+            });
+            logger.log('⏭️  Skipping visit recording, redirecting directly');
+
+            // Get destination URL
+            const destinationUrl = link.services?.line_official_url || link.destination_url;
+
+            if (!destinationUrl) {
+                logger.error('❌ No destination URL found');
+                return {
+                    statusCode: 500,
+                    headers: { 'Content-Type': 'text/html' },
+                    body: `<html><body><h1>Configuration Error</h1><p>No destination URL configured</p></body></html>`
+                };
+            }
+
+            // Direct redirect without recording
+            return {
+                statusCode: 302,
+                headers: {
+                    'Location': destinationUrl,
+                    'Cache-Control': 'no-cache, no-store, must-revalidate'
+                },
+                body: ''
+            };
+        }
+
+        logger.log('✅ Real user detected, recording visit');
 
         // Generate session ID for tracking across conversion funnel
         const sessionId = generateSessionId();
