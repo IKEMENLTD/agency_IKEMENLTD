@@ -24,10 +24,10 @@
   to = "/admin/index.html"
   status = 200
 
-# Tracking link routing - serves static HTML page
+# Tracking link routing - direct to track-redirect function
 [[redirects]]
-  from = "/t/*"
-  to = "/t/index.html"
+  from = "/t/:code"
+  to = "/.netlify/functions/track-redirect/:code"
   status = 200
 
 # Security headers for agency dashboard

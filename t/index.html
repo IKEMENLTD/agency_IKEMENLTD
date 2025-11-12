@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,7 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            max-width: 400px;
         }
 
         .logo {
@@ -50,6 +51,7 @@
         .message {
             margin-top: 1rem;
             opacity: 0.9;
+            font-size: 0.9rem;
         }
 
         .error-message {
@@ -58,21 +60,7 @@
             padding: 1rem;
             border-radius: 0.5rem;
             margin-top: 1rem;
-        }
-
-        .retry-button {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            margin-top: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .retry-button:hover {
-            background: rgba(255, 255, 255, 0.3);
+            font-size: 0.85rem;
         }
     </style>
 </head>
@@ -80,206 +68,57 @@
     <div class="container">
         <div class="logo">株式会社イケメン</div>
         <div class="spinner"></div>
-        <div class="message" id="message">Redirecting to LINE...</div>
+        <div class="message" id="message">LINEにリダイレクト中...</div>
         <div id="error-container" style="display: none;">
-            <div class="error-message" id="error-message"></div>
-            <button class="retry-button" onclick="handleRedirect()">Retry</button>
+            <div class="error-message">
+                <p><strong>エラーが発生しました</strong></p>
+                <p id="error-text"></p>
+                <p style="margin-top: 1rem; font-size: 0.8rem;">
+                    トラッキングリンクが無効か、存在しません。<br>
+                    代理店にお問い合わせください。
+                </p>
+            </div>
         </div>
     </div>
 
     <script>
-        // Configuration
-        const CONFIG = {
-            supabaseUrl: 'https://your-project.supabase.co',
-            supabaseKey: 'your-anon-key',
-            defaultLineUrl: 'https://line.me/R/ti/p/default-friend-url'
-        };
+        // トラッキングコードを取得
+        const trackingCode = window.location.pathname.split('/').filter(p => p).pop();
 
-        // Track the visit and redirect
-        async function handleRedirect() {
-            try {
-                document.getElementById('error-container').style.display = 'none';
-                document.getElementById('message').textContent = 'Redirecting to LINE...';
-
-                // Get tracking code from URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const trackingCode = window.location.pathname.split('/').pop() || urlParams.get('t');
-
-                if (!trackingCode) {
-                    throw new Error('No tracking code found');
-                }
-
-                // Collect tracking data
-                const trackingData = {
-                    tracking_code: trackingCode,
-                    ip_address: await getClientIP(),
-                    user_agent: navigator.userAgent,
-                    referrer: document.referrer || null,
-                    utm_source: urlParams.get('utm_source'),
-                    utm_medium: urlParams.get('utm_medium'),
-                    utm_campaign: urlParams.get('utm_campaign'),
-                    screen_resolution: `${screen.width}x${screen.height}`,
-                    language: navigator.language,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                    visited_at: new Date().toISOString()
-                };
-
-                // Track the visit
-                const response = await fetch('/.netlify/functions/track-visit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(trackingData)
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Failed to track visit');
-                }
-
-                const result = await response.json();
-                const lineUrl = result.line_friend_url || CONFIG.defaultLineUrl;
-
-                // セキュリティ: リダイレクト前にURLを検証
-                if (!isValidRedirectUrl(lineUrl)) {
-                    throw new Error('Invalid redirect URL detected. Redirect blocked for security.');
-                }
-
-                // Add UTM parameters to LINE URL if they exist
-                const finalUrl = addUtmParameters(lineUrl, trackingData);
-
-                document.getElementById('message').textContent = 'Success! Redirecting now...';
-
-                // Redirect after a short delay
-                setTimeout(() => {
-                    // 最終チェック: リダイレクト直前にもう一度検証
-                    if (isValidRedirectUrl(finalUrl)) {
-                        window.location.href = finalUrl;
-                    } else {
-                        showError('Security validation failed. Redirect blocked.');
-                    }
-                }, 1000);
-
-            } catch (error) {
-                console.error('Tracking error:', error);
-                showError(error.message);
-            }
-        }
-
-        // セキュリティ: オープンリダイレクト対策用のURL検証
-        function isValidRedirectUrl(url) {
-            try {
-                const urlObj = new URL(url);
-
-                // 許可されたドメインリスト（ホワイトリスト方式）
-                const allowedDomains = [
-                    'line.me',                    // LINE公式
-                    'liff.line.me',               // LIFF アプリ
-                    'access.line.me',             // LINE Access
-                    'timeline.line.me',           // LINE タイムライン
-                    'page.line.me',               // LINE 公式アカウント
-                    'lin.ee',                     // LINE 短縮URL
-                    window.location.hostname       // 自サイト
-                ];
-
-                // プロトコルチェック（httpまたはhttpsのみ許可）
-                if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-                    console.error('Invalid protocol:', urlObj.protocol);
-                    return false;
-                }
-
-                // ドメインチェック
-                const hostname = urlObj.hostname.toLowerCase();
-                const isAllowed = allowedDomains.some(domain => {
-                    return hostname === domain || hostname.endsWith('.' + domain);
-                });
-
-                if (!isAllowed) {
-                    console.error('Unauthorized domain:', hostname);
-                    return false;
-                }
-
-                return true;
-            } catch (error) {
-                console.error('URL validation error:', error);
-                return false;
-            }
-        }
-
-        function addUtmParameters(url, trackingData) {
-            try {
-                // URL検証を先に実行
-                if (!isValidRedirectUrl(url)) {
-                    console.error('Security: Invalid redirect URL blocked:', url);
-                    throw new Error('Invalid redirect URL for security reasons');
-                }
-
-                const urlObj = new URL(url);
-
-                if (trackingData.utm_source) {
-                    urlObj.searchParams.set('utm_source', trackingData.utm_source);
-                }
-                if (trackingData.utm_medium) {
-                    urlObj.searchParams.set('utm_medium', trackingData.utm_medium);
-                }
-                if (trackingData.utm_campaign) {
-                    urlObj.searchParams.set('utm_campaign', trackingData.utm_campaign);
-                }
-
-                return urlObj.toString();
-            } catch (error) {
-                console.error('Error adding UTM parameters:', error);
-                throw error; // エラーを呼び出し元に伝播
-            }
-        }
-
-        async function getClientIP() {
-            try {
-                // Try to get IP from various services
-                const services = [
-                    'https://api64.ipify.org?format=json',
-                    'https://api.ipify.org?format=json',
-                    'https://ipinfo.io/json'
-                ];
-
-                for (const service of services) {
-                    try {
-                        const response = await fetch(service, { timeout: 3000 });
-                        if (response.ok) {
-                            const data = await response.json();
-                            return data.ip;
-                        }
-                    } catch (error) {
-                        continue;
-                    }
-                }
-
-                return 'unknown';
-            } catch (error) {
-                console.error('Error getting client IP:', error);
-                return 'unknown';
-            }
-        }
-
-        function showError(message) {
-            document.getElementById('message').textContent = 'Something went wrong...';
-            document.getElementById('error-message').textContent = `Error: ${message}`;
+        if (!trackingCode) {
+            document.getElementById('message').textContent = 'トラッキングコードが見つかりません';
+            document.getElementById('error-text').textContent = 'URLが不完全です。';
             document.getElementById('error-container').style.display = 'block';
+            document.querySelector('.spinner').style.display = 'none';
+        } else {
+            // track-redirect関数にリダイレクト
+            // この関数がすべてのトラッキングとリダイレクトを処理します
+            const redirectUrl = `/.netlify/functions/track-redirect/${trackingCode}`;
+
+            document.getElementById('message').textContent = 'トラッキング中...';
+
+            // 即座にリダイレクト
+            window.location.href = redirectUrl;
+
+            // フォールバック: 3秒後にもリダイレクトを試みる
+            setTimeout(() => {
+                if (window.location.href.includes('/t/')) {
+                    window.location.href = redirectUrl;
+                }
+            }, 3000);
+
+            // 最終フォールバック: 10秒後にエラーを表示
+            setTimeout(() => {
+                if (window.location.href.includes('/t/')) {
+                    document.getElementById('message').textContent = 'リダイレクトに失敗しました';
+                    document.getElementById('error-text').textContent =
+                        'トラッキングコード: ' + trackingCode + '\n' +
+                        'リダイレクトに時間がかかっています。';
+                    document.getElementById('error-container').style.display = 'block';
+                    document.querySelector('.spinner').style.display = 'none';
+                }
+            }, 10000);
         }
-
-        // Initialize tracking on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Start tracking immediately
-            handleRedirect();
-        });
-
-        // Fallback: if redirect doesn't happen within 10 seconds, show error
-        setTimeout(() => {
-            if (window.location.href.includes('/t/')) {
-                showError('Redirect is taking longer than expected. Please try again or contact support.');
-            }
-        }, 10000);
     </script>
 </body>
 </html>
