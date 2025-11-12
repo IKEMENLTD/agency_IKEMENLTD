@@ -601,3 +601,160 @@ SELECT name, line_official_url FROM services WHERE name = 'TaskMate AI';
 3. ⏳ `https://agency.ikemen.ltd/t/3ziinbhuytjk`で動作確認
 
 ---
+
+## 2025-11-12: 訪問履歴に「既存/新規」ラベル追加
+
+### 問題
+
+ユーザーから「最近の閲覧履歴って、既存友達見れないの？」という質問。
+
+現状:
+- トラッキングリンクを経由した訪問のみ記録される
+- line_user_idがnullの訪問は、LINE表示名が表示されない
+- 既存友達と新規友達の区別がつかない
+
+### 要求仕様
+
+ユーザーからの指示: 「そしたらすべての名前反映で、既存には既存、新規には新規ってつくようにフル修正して上書きで。余計な事はしないでちゃんと頼む」
+
+### 実装内容
+
+#### 1. IP + User Agent による LINE ID マッチング
+
+**ファイル**: `netlify/functions/agency-link-visits.js`
+
+```javascript
+// line_user_idがnullの訪問に対して
+const visitsWithoutLineId = (visits || []).filter(v => !v.line_user_id);
+
+// agency_tracking_visitsテーブル全体から同じIP+UAを検索
+const { data: allVisits } = await supabase
+    .from('agency_tracking_visits')
+    .select('visitor_ip, user_agent, line_user_id')
+    .eq('agency_id', agencyId)
+    .not('line_user_id', 'is', null);
+
+// IP + User Agent をキーにしたマップを作成
+const ipUserAgentMap = {};
+allVisits.forEach(v => {
+    const key = `${v.visitor_ip}|||${v.user_agent}`;
+    if (v.line_user_id) {
+        ipUserAgentMap[key] = v.line_user_id;
+    }
+});
+
+// マッチングを試みる
+for (const visit of visitsWithoutLineId) {
+    const key = `${visit.visitor_ip}|||${visit.user_agent}`;
+    if (ipUserAgentMap[key]) {
+        visit.matched_line_user_id = ipUserAgentMap[key];
+    }
+}
+```
+
+#### 2. 既存/新規の判定ロジック
+
+```javascript
+// トラッキングリンクの最初の訪問時刻を取得
+const { data: firstVisit } = await supabase
+    .from('agency_tracking_visits')
+    .select('created_at')
+    .eq('tracking_link_id', linkId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single();
+
+const linkCreatedTime = firstVisit ? new Date(firstVisit.created_at) : new Date();
+
+// LINE profileのcreated_atと比較
+if (lineProfile) {
+    const profileCreatedTime = new Date(lineProfile.created_at);
+
+    if (profileCreatedTime < linkCreatedTime) {
+        friendStatus = '既存';
+    } else {
+        friendStatus = '新規';
+    }
+}
+```
+
+#### 3. フロントエンド表示
+
+**ファイル**: `agency/index.html`
+
+```html
+<div x-show="visit.line_display_name" class="flex items-center space-x-2">
+    <i class="fab fa-line text-cyan-500"></i>
+    <span x-text="visit.line_display_name"></span>
+    <span x-show="visit.friend_status"
+          class="px-2 py-0.5 rounded-full text-xs font-medium"
+          :class="{
+              'bg-green-100 text-green-800': visit.friend_status === '新規',
+              'bg-blue-100 text-blue-800': visit.friend_status === '既存'
+          }"
+          x-text="visit.friend_status"></span>
+</div>
+```
+
+#### 4. CSV出力対応
+
+**ファイル**: `agency/dashboard.js`
+
+```javascript
+// CSVヘッダーに「既存/新規」を追加
+const headers = ['日時', 'LINE表示名', '既存/新規', 'デバイス', ...];
+
+// データ行にfriend_statusを追加
+const rows = this.linkVisits.map(visit => {
+    return [
+        this.formatDateTime(visit.created_at),
+        visit.line_display_name || '-',
+        visit.friend_status || '-',
+        visit.device_type || '-',
+        ...
+    ];
+});
+```
+
+### 技術的な特徴
+
+#### マッチング精度
+
+- **IP + User Agent完全一致**: 精度が高い
+- **代理店スコープ**: 同じ代理店内の訪問のみ検索
+- **非破壊的**: 元のline_user_idは変更せず、matched_line_user_idとして保存
+
+#### パフォーマンス考慮
+
+- 訪問履歴50件取得時に、代理店全体の訪問データを1回だけクエリ
+- マップを使った高速検索（O(1)）
+- 必要な場合のみLINE profileを追加取得
+
+#### UI/UX
+
+- **緑バッジ（新規）**: 新規獲得した友達を視覚的に強調
+- **青バッジ（既存）**: 既存友達を識別
+- **コンパクト表示**: LINE表示名の右側に小さく表示
+
+### 検証方法
+
+1. トラッキングリンクから訪問
+2. ダッシュボードで訪問履歴を確認
+3. 確認項目:
+   - ✅ すべての訪問にLINE表示名が表示される
+   - ✅ 「既存」または「新規」バッジが表示される
+   - ✅ CSV出力に「既存/新規」列が含まれる
+
+### 関連コミット
+
+- `6525204`: **訪問履歴に「既存/新規」ラベルを追加（最終実装）**
+- `322088a`: CLAUDE.md更新
+- `249fbef`: TaskMate AI LINE URL更新
+
+### 次のステップ
+
+1. ⏳ `git push origin main`
+2. ⏳ Netlifyの自動デプロイ（2-3分）
+3. ⏳ ダッシュボードで動作確認
+
+---
