@@ -103,8 +103,12 @@ exports.handler = async (event) => {
         }
 
         // Filter out bot visits
-        const filteredVisits = filterBotVisits(visits || []);
-        console.log(`Filtered ${(visits || []).length - filteredVisits.length} bot visits`);
+        // const filteredVisits = filterBotVisits(visits || []);
+        // console.log(`Filtered ${(visits || []).length - filteredVisits.length} bot visits`);
+
+        // DEBUG: Return ALL visits including bots to diagnose missing history
+        const filteredVisits = visits || [];
+        console.log(`DEBUG: Returned all ${filteredVisits.length} visits (Bot filtering disabled)`);
 
         // Get unique LINE user IDs from filtered visits
         const lineUserIds = [...new Set(

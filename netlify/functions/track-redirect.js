@@ -163,43 +163,8 @@ exports.handler = async (event) => {
         const sessionId = generateSessionId();
         logger.log('🆔 Generated session ID:', sessionId);
 
-        // Record the visit
-        logger.log('💾 Recording visit to database...');
-        const { data: visit, error: visitError } = await supabase
-            .from('agency_tracking_visits')
-            .insert({
-                tracking_link_id: link.id,
-                agency_id: link.agency_id,
-                service_id: link.service_id || null,  // Multi-service support
-                visitor_ip: visitorInfo.ip,
-                user_agent: visitorInfo.userAgent,
-                referrer: visitorInfo.referrer,
-                device_type: visitorInfo.deviceType,
-                browser: visitorInfo.browser,
-                os: visitorInfo.os,
-                session_id: sessionId,
-                line_user_id: null, // Will be linked when user adds LINE friend
-                metadata: {
-                    tracking_code: trackingCode,
-                    utm_source: link.utm_source,
-                    utm_medium: link.utm_medium,
-                    utm_campaign: link.utm_campaign,
-                    timestamp: new Date().toISOString()
-                }
-            })
-            .select()
-            .single();
-
-        if (visitError) {
-            logger.error('❌ Error recording visit:', visitError);
-            logger.error('Visit error details:', {
-                message: visitError.message,
-                code: visitError.code,
-                details: visitError.details
-            });
-        } else {
-            logger.log('✅ Visit recorded successfully. Visit ID:', visit?.id);
-        }
+        // Record the visit and session (with dynamic params)
+        await createVisitAndSession(trackingCode, link, visitorInfo, sessionId, event.queryStringParameters || {});
 
         // Increment visit count
         logger.log('📊 Incrementing visit count...');
@@ -251,12 +216,21 @@ exports.handler = async (event) => {
         url.searchParams.append('sid', sessionId);
         url.searchParams.append('aid', link.agency_id);
 
-        // Add UTM parameters if they exist
+        // Add UTM parameters if they exist (static from DB)
         if (link.utm_source) url.searchParams.append('utm_source', link.utm_source);
         if (link.utm_medium) url.searchParams.append('utm_medium', link.utm_medium);
         if (link.utm_campaign) url.searchParams.append('utm_campaign', link.utm_campaign);
         if (link.utm_term) url.searchParams.append('utm_term', link.utm_term);
         if (link.utm_content) url.searchParams.append('utm_content', link.utm_content);
+
+        // Add dynamic query parameters to the redirection URL as well
+        const queryParams = event.queryStringParameters || {};
+        Object.keys(queryParams).forEach(key => {
+            // Avoid duplicates if already added
+            if (!url.searchParams.has(key)) {
+                url.searchParams.append(key, queryParams[key]);
+            }
+        });
 
         // Set cookie for session tracking (for web-based conversions)
         const cookieValue = JSON.stringify({
@@ -315,6 +289,100 @@ exports.handler = async (event) => {
         };
     }
 };
+
+async function createVisitAndSession(trackingCode, link, visitorInfo, sessionId, queryParams) {
+    logger.log('💾 Recording visit and session to database...');
+
+    // 1. Capture ALL query parameters for marketing attribution
+    // Merge DB-configured UTMs with dynamic query params (dynamic params take precedence/addition)
+    const attributionData = {
+        utm_source: queryParams.utm_source || link.utm_source,
+        utm_medium: queryParams.utm_medium || link.utm_medium,
+        utm_campaign: queryParams.utm_campaign || link.utm_campaign,
+        utm_term: queryParams.utm_term || link.utm_term,
+        utm_content: queryParams.utm_content || link.utm_content,
+        // Capture specific ad IDs
+        fbclid: queryParams.fbclid,
+        gclid: queryParams.gclid,
+        yclid: queryParams.yclid,
+        ttclid: queryParams.ttclid,
+        // Store all other params in metadata
+        other_params: { ...queryParams }
+    };
+
+    // Clean up other_params to avoid duplication
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'yclid', 'ttclid'].forEach(key => {
+        delete attributionData.other_params[key];
+    });
+
+    try {
+        // 2. Insert into agency_tracking_visits (Legacy/Display table)
+        // Use SAFE schema only (avoid columns that might not exist)
+        const { data: visit, error: visitError } = await supabase
+            .from('agency_tracking_visits')
+            .insert({
+                tracking_link_id: link.id,
+                agency_id: link.agency_id,
+                visitor_ip: visitorInfo.ip,
+                user_agent: visitorInfo.userAgent,
+                referrer: visitorInfo.referrer,
+                // These columns are likely safe based on previous code usage
+                // line_user_id is confirmed to exist (was null)
+                line_user_id: null
+
+                // Exclude potential schema-breaking columns for now to ensure reliability:
+                // service_id, device_type, browser, os, session_id, metadata
+            })
+            .select()
+            .single();
+
+        if (visitError) {
+            logger.error('❌ Error recording visit:', visitError);
+            // Fallback: Continue without visit ID
+        } else {
+            logger.log('✅ Visit recorded successfully. Visit ID:', visit?.id);
+        }
+
+        // 3. Insert into user_sessions (CRITICAL for Attribution)
+        // This table is used by line-webhook.js for time-based matching
+        const { error: sessionError } = await supabase
+            .from('user_sessions')
+            .insert({
+                session_id: sessionId,
+                agency_id: link.agency_id,
+                tracking_link_id: link.id,
+                visit_id: visit?.id, // Link to visit if successful
+                user_agent: visitorInfo.userAgent,
+                ip_address: visitorInfo.ip,
+                utm_source: attributionData.utm_source,
+                utm_medium: attributionData.utm_medium,
+                utm_campaign: attributionData.utm_campaign,
+                // Rich data goes here
+                metadata: {
+                    ...attributionData,
+                    device_type: visitorInfo.deviceType,
+                    browser: visitorInfo.browser,
+                    os: visitorInfo.os,
+                    referrer: visitorInfo.referrer,
+                    service_id: link.service_id || null
+                },
+                last_activity_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            });
+
+        if (sessionError) {
+            logger.error('❌ Error creating user_session:', sessionError);
+            // Non-blocking error, but critical for attribution
+        } else {
+            logger.log('✅ User session created successfully for attribution');
+        }
+
+        return visit;
+    } catch (err) {
+        logger.error('Error in createVisitAndSession:', err);
+        return null;
+    }
+}
 
 function generateSessionId() {
     return 'sess_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);

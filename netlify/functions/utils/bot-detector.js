@@ -116,30 +116,65 @@ function detectBot(ip, userAgent) {
     if (userAgent) {
         const ua = userAgent.toLowerCase();
 
+        // Social In-App Browser Whitelist (Optimized for Marketing)
+        // These are often mistaken for bots but are high-value traffic sources
+        const socialAppPatterns = [
+            /instagram/i,
+            /threads/i,
+            /fbav/i,   // Facebook App Version
+            /fban/i,   // Facebook App Name
+            /line\//i, // LINE App
+            /tiktok/i,
+            /pinterest/i
+        ];
+
+        const isSocialApp = socialAppPatterns.some(p => p.test(userAgent));
+        if (isSocialApp) {
+            // If it's a known social app, significantly reduce confidence
+            // even if other bot markers are present (e.g. "facebookexternalhit" sometimes appears in headers)
+            confidence -= 50;
+            reasons.push('Social In-App Browser detected (Whitelist)');
+        }
+
         for (const pattern of BOT_USER_AGENT_PATTERNS) {
             if (pattern.test(userAgent)) {
-                confidence += 60;
+                // If matched a bot pattern...
+
+                // Special exception for Facebook's crawler vs In-App Browser
+                // "facebookexternalhit" is a crawler, but "FBAN"/"FBAV" is a real user.
+                if (/facebookexternalhit/i.test(userAgent) && (userAgent.includes('FBAN') || userAgent.includes('FBAV'))) {
+                    // This is likely a link preview *or* a user share, but if FBAN is present it's usually the app.
+                    // However, to be safe, we treat FBAN/FBAV as human.
+                    confidence -= 30;
+                    reasons.push('Facebook App user detected');
+                    continue;
+                }
+
+                if (!isSocialApp) {
+                    confidence += 60;
+                    reasons.push('Bot User-Agent pattern confirmed');
+                } else {
+                    reasons.push('Bot pattern matched but ignored due to Social App Whitelist');
+                }
 
                 // More specific bot type identification
                 if (!botType) {
-                    if (/facebook/i.test(userAgent)) {
+                    if (/facebook/i.test(userAgent) && !isSocialApp) {
                         botType = 'facebook_bot';
                         reasons.push('Facebook bot User-Agent');
                     } else if (/google/i.test(userAgent)) {
                         botType = 'googlebot';
                         reasons.push('Google bot User-Agent');
-                    } else if (/twitter/i.test(userAgent)) {
+                    } else if (/twitter/i.test(userAgent) && !isSocialApp) {
                         botType = 'twitterbot';
                         reasons.push('Twitter bot User-Agent');
                     } else if (/linkedin/i.test(userAgent)) {
                         botType = 'linkedinbot';
                         reasons.push('LinkedIn bot User-Agent');
-                    } else {
+                    } else if (!isSocialApp) {
                         botType = 'generic_bot';
                         reasons.push('Generic bot User-Agent pattern');
                     }
-                } else {
-                    reasons.push('Bot User-Agent pattern confirmed');
                 }
 
                 break;

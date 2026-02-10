@@ -330,21 +330,27 @@ async function getLineUserProfile(userId) {
 // Link user to recent tracking visit with enhanced agency attribution
 async function linkUserToTracking(lineUserId, userId) {
     try {
-        console.log('=== linkUserToTracking 開始 ===');
+        console.log('=== linkUserToTracking 開始 (最適化版) ===');
         console.log('LINE User ID:', lineUserId);
 
         // 🎯 STEP 1: セッションベースのマッチング（最優先・最高精度）
+        // user_sessions テーブルから、LINE IDが紐付いていない直近のセッションを検索
+        // 許容時間は2時間（ユーザーがクリックしてから友達追加するまでの現実的な時間）
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
         const { data: activeSession, error: sessionError } = await supabase
             .from('user_sessions')
             .select('*')
-            .is('line_user_id', null)
-            .gte('last_activity_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()) // Within last 2 hours
+            .is('line_user_id', null) // まだLINE連携されていないセッション
+            .gte('last_activity_at', twoHoursAgo)
             .order('last_activity_at', { ascending: false })
             .limit(1);
 
         if (!sessionError && activeSession && activeSession.length > 0) {
             const session = activeSession[0];
-            console.log('✅ セッションマッチング成功:', session.id);
+            console.log('✅ セッションマッチング成功:', session.session_id);
+            console.log(`- Tracking Link ID: ${session.tracking_link_id}`);
+            console.log(`- Agency ID: ${session.agency_id}`);
 
             // Update session with LINE user info
             const { error: updateError } = await supabase
@@ -354,16 +360,16 @@ async function linkUserToTracking(lineUserId, userId) {
                     line_friend_at: new Date().toISOString(),
                     last_activity_at: new Date().toISOString()
                 })
-                .eq('id', session.id);
+                .eq('session_id', session.session_id); // session_id (string) で更新
 
             if (!updateError) {
-                console.log(`Linked LINE user ${lineUserId} to session ${session.id} for agency ${session.agency_id}`);
+                console.log(`Linked LINE user ${lineUserId} to session ${session.session_id}`);
 
                 // Record funnel step
                 await supabase
                     .from('conversion_funnels')
                     .insert([{
-                        session_id: session.id,
+                        session_id: session.id, // ID (int)
                         agency_id: session.agency_id,
                         step_name: 'line_friend',
                         step_data: {
@@ -373,155 +379,68 @@ async function linkUserToTracking(lineUserId, userId) {
                         }
                     }]);
 
-                // Create LINE friend conversion if this is an agency session
+                // Create LINE friend conversion
                 if (session.agency_id) {
                     await createAgencyLineConversion(session, lineUserId, userId);
                 }
 
+                // 紐付いた訪問データ（agency_tracking_visits）も更新しておく
+                if (session.visit_id) {
+                    await supabase
+                        .from('agency_tracking_visits')
+                        .update({ line_user_id: lineUserId })
+                        .eq('id', session.visit_id);
+                    console.log(`✅ 関連する訪問データ(ID:${session.visit_id})も更新しました`);
+                }
+
                 return session;
+            } else {
+                console.error('❌ セッション更新エラー:', updateError);
             }
         }
 
-        console.log('⚠️ セッションマッチングなし、訪問履歴でマッチング開始');
+        console.log('⚠️ セッションマッチングなし、IP/UAマッチングへフォールバック');
 
-        // 🎯 STEP 2: 高精度訪問マッチング（IPアドレス + User-Agent + 時間窓）
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10分以内に短縮
+        // 🎯 STEP 2: 緩和されたIP/UAマッチング（フォールバック）
+        // セッションがない場合（例: 古いリンク、Directクリックなど）のための救済措置
+        // IP完全一致条件を緩和し、時間とUser-Agentを重視
 
-        // Get LINE Webhook request info for IP matching
-        const lineWebhookIP = getClientIPFromHeaders(event.headers);
-        const lineWebhookUserAgent = event.headers['user-agent'] || '';
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
-        console.log('📍 LINE Webhook情報:');
-        console.log('- IP:', lineWebhookIP);
-        console.log('- User-Agent:', lineWebhookUserAgent.substring(0, 100));
+        // Get LINE Webhook request info
+        // 注意: LINEサーバーからのリクエストなのでIPはLINEのもの。ユーザーIPとは一致しない。
+        // そのためIPマッチングは "除外" 条件としてのみ使用するか、信頼度を下げる。
+        const lineWebhookUserAgent = 'LINE/Bot'; // Default assumption
 
-        // Try agency_tracking_visits with stricter matching
+        // Try agency_tracking_visits
         const { data: candidateVisits, error: agencyError } = await supabase
             .from('agency_tracking_visits')
             .select('*')
             .is('line_user_id', null)
-            .gte('created_at', tenMinutesAgo) // 10分以内
-            .order('created_at', { ascending: false });
+            .gte('created_at', tenMinutesAgo)
+            .order('created_at', { ascending: false })
+            .limit(5); // 直近5件を評価
 
-        if (agencyError) {
-            console.error('❌ 訪問履歴取得エラー:', agencyError);
+        if (agencyError || !candidateVisits || candidateVisits.length === 0) {
+            console.log('⚠️ 過去10分以内の候補訪問なし');
             return null;
         }
 
-        if (!candidateVisits || candidateVisits.length === 0) {
-            console.log('⚠️ 過去10分以内の未紐付け訪問なし');
-            return null;
-        }
+        console.log(`📊 候補訪問数: ${candidateVisits.length}件 - 最適なものを探索中...`);
 
-        console.log(`📊 候補訪問数: ${candidateVisits.length}件`);
+        // マッチングロジック:
+        // 一番新しい訪問を優先するが、明らかに異なるUser-Agentがあれば除外する
+        // LINEアプリ内ブラウザからの訪問 (Line/X.X.X) は高評価
 
-        // 🔍 STEP 3: スコアリングによる最適マッチング
         let bestMatch = null;
-        let bestScore = 0;
 
-        for (const visit of candidateVisits) {
-            let score = 0;
-            const debugInfo = { visit_id: visit.id, scores: {} };
+        // 直近の訪問を単純に採用する（IPマッチングは不可能なので時間優先）
+        // 誤検知のリスクはあるが、友達追加直前のクリックである可能性が極めて高い
+        bestMatch = candidateVisits[0];
 
-            // 🔥 IPアドレス完全一致（最高優先度）+10点
-            if (visit.visitor_ip && lineWebhookIP && lineWebhookIP !== 'unknown') {
-                if (visit.visitor_ip === lineWebhookIP) {
-                    score += 10;
-                    debugInfo.scores.ip_match = 10;
-                    debugInfo.ip_matched = true;
-                } else {
-                    // IP不一致は減点（異なるネットワークからのアクセス）
-                    debugInfo.ip_matched = false;
-                    debugInfo.visitor_ip = visit.visitor_ip;
-                    debugInfo.webhook_ip = lineWebhookIP;
-                }
-            }
-
-            // 🔥 User-Agent完全一致 +10点
-            if (visit.user_agent && lineWebhookUserAgent) {
-                // User-Agentの類似度を計算（完全一致または部分一致）
-                const visitUA = visit.user_agent.toLowerCase();
-                const webhookUA = lineWebhookUserAgent.toLowerCase();
-
-                if (visitUA === webhookUA) {
-                    // 完全一致
-                    score += 10;
-                    debugInfo.scores.ua_exact_match = 10;
-                } else if (visitUA.includes('line') && webhookUA.includes('line')) {
-                    // LINEアプリ内ブラウザ同士（部分一致）
-                    score += 7;
-                    debugInfo.scores.ua_line_match = 7;
-                } else {
-                    // ブラウザ種類が一致するか確認
-                    const visitBrowser = extractBrowser(visitUA);
-                    const webhookBrowser = extractBrowser(webhookUA);
-
-                    if (visitBrowser === webhookBrowser && visitBrowser !== 'unknown') {
-                        score += 3;
-                        debugInfo.scores.ua_browser_match = 3;
-                        debugInfo.browser = visitBrowser;
-                    } else {
-                        debugInfo.ua_mismatch = true;
-                        debugInfo.visit_browser = visitBrowser;
-                        debugInfo.webhook_browser = webhookBrowser;
-                    }
-                }
-            }
-
-            // 時間的近さスコア（最近ほど高い）
-            const ageMinutes = (Date.now() - new Date(visit.created_at).getTime()) / (60 * 1000);
-            const timeScore = Math.max(0, 10 - ageMinutes); // 0分=10点、10分=0点
-            score += timeScore;
-            debugInfo.scores.time = timeScore.toFixed(2);
-
-            // セッションIDがある場合は大幅加点
-            if (visit.session_id) {
-                score += 20;
-                debugInfo.scores.session = 20;
-            }
-
-            // Referrer検証: 公式サイトからの流入を除外
-            if (visit.referrer) {
-                const isOfficialSite =
-                    visit.referrer.includes('taskmateai.net') ||
-                    visit.referrer.includes('agency.ikemen.ltd') ||
-                    visit.referrer.includes('ikemen.ltd');
-
-                if (isOfficialSite && !visit.tracking_link_id) {
-                    // 公式サイトからの流入でトラッキングリンク経由でない場合は大幅減点
-                    score -= 50;
-                    debugInfo.scores.official_penalty = -50;
-                    debugInfo.referrer = visit.referrer;
-                }
-            }
-
-            // トラッキングリンク経由（代理店リンク）は加点
-            if (visit.tracking_link_id) {
-                score += 15;
-                debugInfo.scores.tracking_link = 15;
-            }
-
-            // デバイス情報の一貫性（同じブラウザ/OS）
-            if (visit.browser) {
-                score += 5;
-                debugInfo.scores.browser = 5;
-            }
-
-            debugInfo.total_score = score;
-            console.log('📊 訪問スコア:', JSON.stringify(debugInfo));
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = visit;
-            }
-        }
-
-        // 🎯 STEP 4: ベストマッチのみ紐付け
-        if (bestMatch && bestScore > 0) {
-            console.log(`✅ ベストマッチ決定: visit_id=${bestMatch.id}, score=${bestScore}`);
+        if (bestMatch) {
+            console.log(`✅ 時間ベースのベストマッチ (Score: Time-Priority): visit_id=${bestMatch.id}`);
             console.log(`- Tracking Link ID: ${bestMatch.tracking_link_id || 'なし'}`);
-            console.log(`- Agency ID: ${bestMatch.agency_id || 'なし'}`);
-            console.log(`- Referrer: ${bestMatch.referrer || 'なし'}`);
 
             const { error: updateError } = await supabase
                 .from('agency_tracking_visits')
@@ -529,49 +448,24 @@ async function linkUserToTracking(lineUserId, userId) {
                 .eq('id', bestMatch.id);
 
             if (!updateError) {
-                console.log(`✅ LINE user ${lineUserId} を visit ${bestMatch.id} に紐付けました`);
+                console.log(`✅ LINE user ${lineUserId} を visit ${bestMatch.id} に紐付けました(フォールバック)`);
 
-                // コンバージョン記録（代理店リンク経由の場合のみ）
+                // コンバージョン記録
                 if (bestMatch.tracking_link_id && bestMatch.agency_id) {
                     await createAgencyConversion(bestMatch, lineUserId);
                 }
 
                 return bestMatch;
-            } else {
-                console.error('❌ 訪問更新エラー:', updateError);
-            }
-        } else {
-            console.log('⚠️ 有効なマッチングなし（スコアが低い、または候補なし）');
-        }
-
-        // 🔽 STEP 5: 旧tracking_visitsテーブルのフォールバック（互換性維持）
-        const { data: recentVisits, error } = await supabase
-            .from('tracking_visits')
-            .select('*')
-            .is('line_user_id', null)
-            .gte('visited_at', tenMinutesAgo)
-            .order('visited_at', { ascending: false })
-            .limit(1);
-
-        if (!error && recentVisits && recentVisits.length > 0) {
-            const { error: updateError } = await supabase
-                .from('tracking_visits')
-                .update({ line_user_id: userId })
-                .eq('id', recentVisits[0].id);
-
-            if (!updateError) {
-                console.log(`✅ (旧テーブル) LINE user ${lineUserId} を visit ${recentVisits[0].id} に紐付けました`);
-                return recentVisits[0];
             }
         }
 
-        console.log('⚠️ 紐付け可能な訪問が見つかりませんでした');
         return null;
     } catch (error) {
         console.error('Error linking user to tracking:', error);
         return null;
     }
 }
+
 
 // Create agency conversion from visit (used in linkUserToTracking)
 async function createAgencyConversion(visit, lineUserId) {
