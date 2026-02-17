@@ -38,6 +38,7 @@ function adminDashboard() {
         agencyFilter: 'all',
         agencyStats: {
             total: 0,
+            pending_approval: 0,
             pending: 0,
             active: 0,
             rejected: 0,
@@ -256,6 +257,11 @@ function adminDashboard() {
         filterAgencies() {
             if (this.agencyFilter === 'all') {
                 this.filteredAgencies = this.agencies;
+            } else if (this.agencyFilter === 'pending') {
+                // LINE未完了は複数ステータスを含む
+                this.filteredAgencies = this.agencies.filter(agency =>
+                    ['pending', 'pending_line_verification', 'pending_friend_add'].includes(agency.status)
+                );
             } else {
                 this.filteredAgencies = this.agencies.filter(agency =>
                     agency.status === this.agencyFilter
@@ -332,7 +338,10 @@ function adminDashboard() {
 
         getStatusLabel(status) {
             const labels = {
-                'pending': '承認待ち',
+                'pending_approval': '承認待ち',
+                'pending': 'LINE未完了',
+                'pending_line_verification': 'LINE認証待ち',
+                'pending_friend_add': '友達追加待ち',
                 'active': '承認済み',
                 'rejected': '非承認',
                 'suspended': '一時停止'

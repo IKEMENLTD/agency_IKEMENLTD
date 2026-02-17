@@ -165,43 +165,28 @@ async function handleFollowEvent(event) {
             console.log('- 代理店コード:', agency.code);
             console.log('- 現在のステータス:', agency.status);
 
-            // 代理店が既にアクティブの場合は何もしない（重複防止）
-            if (agency.status === 'active') {
-                console.log('⚠️ 代理店は既にアクティブ - スキップします');
+            // 代理店が既にアクティブまたは承認待ちの場合は何もしない（重複防止）
+            if (agency.status === 'active' || agency.status === 'pending_approval') {
+                console.log('⚠️ 代理店は既に' + agency.status + ' - スキップします');
                 return;
             }
 
-            // 代理店をアクティブ化
+            // 代理店を承認待ち状態に変更（管理者の承認を待つ）
             const { error: updateError } = await supabase
                 .from('agencies')
                 .update({
-                    status: 'active'
+                    status: 'pending_approval'
                 })
                 .eq('id', agency.id);
 
             if (updateError) {
-                console.error('❌ 代理店アクティベーション失敗:', updateError);
+                console.error('❌ 代理店ステータス更新失敗:', updateError);
             } else {
-                console.log('✅ 代理店をアクティブ化しました');
+                console.log('✅ 代理店を承認待ち状態に変更しました（管理者承認が必要）');
 
-                // ユーザーもアクティブ化
-                const { error: userUpdateError } = await supabase
-                    .from('agency_users')
-                    .update({
-                        is_active: true
-                    })
-                    .eq('agency_id', agency.id)
-                    .eq('role', 'owner');
-
-                if (userUpdateError) {
-                    console.error('❌ ユーザーアクティベーション失敗:', userUpdateError);
-                } else {
-                    console.log('✅ ユーザーをアクティブ化しました');
-                }
-
-                // 🎉 代理店登録完了メッセージを送信
-                await sendAgencyWelcomeMessage(userId, agency);
-                console.log('✅ 代理店ウェルカムメッセージ送信完了');
+                // 承認待ちメッセージを送信（ウェルカムではなく承認待ち案内）
+                await sendPendingApprovalMessage(userId, agency);
+                console.log('✅ 承認待ちメッセージ送信完了');
             }
 
             return; // 代理店フロー完了
@@ -288,13 +273,34 @@ async function handleMessageEvent(event) {
     const userId = event.source.userId;
 
     try {
-        // Update user's last activity (using updated_at)
-        await supabase
-            .from('line_profiles')
-            .update({
-                updated_at: new Date().toISOString()
-            })
-            .eq('user_id', userId);
+        // 🆕 Ensure profile exists (fetch from LINE if missing or update if needed)
+        // 既存友達でプロファイルがDBにない場合、名前が表示されない問題を修正
+        const userProfile = await getLineUserProfile(userId);
+
+        if (userProfile) {
+            console.log('LINE Profile fetched for message event:', userProfile.displayName);
+
+            // Upsert profile (Update if exists, Insert if new)
+            const { error: upsertError } = await supabase
+                .from('line_profiles')
+                .upsert({
+                    user_id: userId,
+                    display_name: userProfile.displayName,
+                    picture_url: userProfile.pictureUrl,
+                    status_message: userProfile.statusMessage,
+                    language: userProfile.language, // Might be undefined but safe
+                    fetched_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (upsertError) {
+                console.error('Error upserting profile in message event:', upsertError);
+            }
+        }
+
+        // 🆕 Link user to tracking on message event (Critical for existing friends)
+        // 既存の友達がリンクを踏んでからメッセージを送った場合も紐付けを行う
+        await linkUserToTracking(userId, userId);
 
         // ⚠️ Netlify側ではメッセージ返信は行わない（Render側のみが返信）
         // 代理店プログラムのコンバージョン記録のみを担当
@@ -405,7 +411,7 @@ async function linkUserToTracking(lineUserId, userId) {
         // セッションがない場合（例: 古いリンク、Directクリックなど）のための救済措置
         // IP完全一致条件を緩和し、時間とUser-Agentを重視
 
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
         // Get LINE Webhook request info
         // 注意: LINEサーバーからのリクエストなのでIPはLINEのもの。ユーザーIPとは一致しない。
@@ -417,12 +423,12 @@ async function linkUserToTracking(lineUserId, userId) {
             .from('agency_tracking_visits')
             .select('*')
             .is('line_user_id', null)
-            .gte('created_at', tenMinutesAgo)
+            .gte('created_at', twentyFourHoursAgo)
             .order('created_at', { ascending: false })
             .limit(5); // 直近5件を評価
 
         if (agencyError || !candidateVisits || candidateVisits.length === 0) {
-            console.log('⚠️ 過去10分以内の候補訪問なし');
+            console.log('⚠️ 過去24時間以内の候補訪問なし');
             return null;
         }
 
@@ -722,6 +728,40 @@ async function sendLineMessage(userId, message) {
         }
     } catch (error) {
         console.error('Error sending LINE message:', error);
+    }
+}
+
+// 🆕 Send pending approval message (管理者承認待ちメッセージ)
+async function sendPendingApprovalMessage(userId, agency) {
+    // ⚠️ Netlify側ではメッセージ送信を完全に無効化（Render側のみが送信）
+    console.log('⚠️ sendPendingApprovalMessage called but disabled (Netlify side)');
+    console.log('- 代理店:', agency.name, '(', agency.code, ')');
+    console.log('- メッセージ内容: LINE連携完了・管理者承認待ち');
+    return;
+
+    try {
+        const message = {
+            type: 'text',
+            text: `✅ LINE連携が完了しました！\n\n${agency.name} 様\n\nLINE連携ありがとうございます。\n現在、運営管理者による承認手続き中です。\n\n承認完了後、ログインが可能になります。\n通常1〜2営業日以内に承認されます。\n\nしばらくお待ちください。`
+        };
+
+        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to: userId,
+                messages: [message]
+            })
+        });
+
+        if (!response.ok) {
+            console.error('Failed to send pending approval message:', response.status);
+        }
+    } catch (error) {
+        console.error('Error sending pending approval message:', error);
     }
 }
 

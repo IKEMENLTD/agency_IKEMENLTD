@@ -67,7 +67,8 @@ exports.handler = async (event) => {
             // Calculate statistics
             const stats = {
                 total: formattedAgencies.length,
-                pending: formattedAgencies.filter(a => a.status === 'pending').length,
+                pending_approval: formattedAgencies.filter(a => a.status === 'pending_approval').length,
+                pending: formattedAgencies.filter(a => ['pending', 'pending_line_verification', 'pending_friend_add'].includes(a.status)).length,
                 active: formattedAgencies.filter(a => a.status === 'active').length,
                 rejected: formattedAgencies.filter(a => a.status === 'rejected').length,
                 suspended: formattedAgencies.filter(a => a.status === 'suspended').length

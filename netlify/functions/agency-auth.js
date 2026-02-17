@@ -202,6 +202,8 @@ exports.handler = async (event) => {
                     agency_status: user.agencies.status,
                     message: user.agencies.status === 'pending_friend_add'
                         ? 'LINE公式アカウントを友達追加して、アカウントを有効化してください。'
+                        : user.agencies.status === 'pending_approval'
+                        ? '現在、運営管理者による承認手続き中です。承認完了後にログインが可能になります。'
                         : 'アカウントの有効化処理中です。しばらくお待ちください。',
                     actions: user.agencies.status === 'pending_friend_add'
                         ? [
@@ -213,6 +215,20 @@ exports.handler = async (event) => {
                             {
                                 type: 'contact_support',
                                 label: '問題が解決しない場合はサポートへ',
+                                url: 'https://ikemen.ltd/contact/',
+                                email: 'info@ikemen.ltd'
+                            }
+                        ]
+                        : user.agencies.status === 'pending_approval'
+                        ? [
+                            {
+                                type: 'pending_approval',
+                                label: '運営管理者の承認をお待ちください',
+                                url: null
+                            },
+                            {
+                                type: 'contact_support',
+                                label: 'お急ぎの場合はサポートへ',
                                 url: 'https://ikemen.ltd/contact/',
                                 email: 'info@ikemen.ltd'
                             }
